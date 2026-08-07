@@ -3,28 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>GymApp</title>
+  <title>GymApp Pro</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-<body style="background: #030712; font-family: system-ui, -apple-system, sans-serif; padding: 16px; margin: 0;">
+<body>
 
-  <div id="mode-selection" style="max-width: 400px; margin: 40px auto; text-align: center; color: #fff;">
-    <h1 style="font-size: 20px;">Kto dzisiaj trenuje?</h1>
-    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 20px;">
-      <button onclick="window.startSession('martin_session')" style="padding: 16px; background: #2563eb; color: #fff; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; font-size: 15px;">
-        Martin (Wspólny Trening Góry)
-      </button>
-      <button onclick="window.startSession('ana_solo')" style="padding: 16px; background: #db2777; color: #fff; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; font-size: 15px;">
-        Ana Solo (Dół)
-      </button>
+  <div class="app-container">
+    
+    <div id="mode-selection" class="card main-menu-card">
+      <div class="logo-badge">GYM ENGINE</div>
+      <h1>Kto dzisiaj trenuje?</h1>
+      <p class="subtitle">Wybierz odpowiednią ścieżkę treningową</p>
+      
+      <div class="button-group">
+        <button onclick="window.startSession('martin_session')" class="btn btn-martin">
+          <span class="btn-icon">⚡</span>
+          <div class="btn-text">
+            <strong>Martin & Ana</strong>
+            <small>Wspólna Góra + Dedykowane Martina</small>
+          </div>
+        </button>
+        
+        <button onclick="window.startSession('ana_solo')" class="btn btn-ana">
+          <span class="btn-icon">🔥</span>
+          <div class="btn-text">
+            <strong>Ana Solo</strong>
+            <small>Dół / Nogil i Pośladki</small>
+          </div>
+        </button>
+      </div>
     </div>
-  </div>
 
-  <div id="loading-screen" class="hidden" style="max-width: 400px; margin: 60px auto; text-align: center; color: #10b981; font-weight: bold;">
-    Pobieranie ostatnich wyników z Firebase...
-  </div>
+    <div id="loading-screen" class="hidden loading-card">
+      <div class="spinner"></div>
+      <p>Pobieranie ostatnich wyników...</p>
+    </div>
 
-  <div id="exercise-card-view" class="hidden" style="max-width: 400px; margin: 0 auto;">
-    <div id="card-container"></div>
+    <div id="exercise-card-view" class="hidden">
+      <div class="progress-bar-container">
+        <div class="progress-info">
+          <span id="progress-text">Ćwiczenie 1 z 9</span>
+          <span id="set-badge" class="badge-set">SERIA 1 z 2</span>
+        </div>
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div id="card-container"></div>
+    </div>
+
   </div>
 
   <script type="module" src="app.js"></script>

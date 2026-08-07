@@ -46,7 +46,6 @@ window.startSession = async function(mode) {
   document.getElementById('loading-screen').classList.add('hidden');
   document.getElementById('exercise-card-view').classList.remove('hidden');
   
-  // Pokaż podgląd pierwszego ćwiczenia
   showExercisePreview();
 };
 
@@ -60,30 +59,34 @@ function showExercisePreview() {
     return;
   }
 
-  // Animowane tymczasowe okienko ze zdjęciem/ikoną
+  const imgHtml = ex.image ? `<img src="${ex.image}" alt="${ex.name}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--card-border);">` : '<span class="preview-icon">🏋️‍♂️</span>';
+
   container.innerHTML = `
     <div class="card preview-card">
-      <span class="preview-icon">🏋️‍♂️</span>
+      ${imgHtml}
       <span style="font-size: 11px; color: var(--accent-green); font-weight: 800; letter-spacing: 1px;">NASTĘPNE ĆWICZENIE</span>
-      <h2 style="margin: 8px 0 4px 0;">${ex.name}</h2>
+      <h2 style="margin: 6px 0 4px 0;">${ex.name}</h2>
       <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Przygotuj się do rozpoczęcia serii</p>
     </div>
   `;
 
-  // Po 1.5 sekundy przejdź automatycznie do serii (lub rozgrzewki)
   setTimeout(() => {
+    // 1. Rozgrzewka na Latzugu (Martin & Ana)
     if (currentExIndex === 0 && currentSetNumber === 1 && activeMode === 'martin_session') {
       renderWarmupCard(ex);
-    } else {
+    } 
+    // 2. Przypomnienie o rozgrzewce na Skosie (tylko Martin)
+    else if (ex.id === 'wyciskanie_skos' && currentSetNumber === 1 && activeMode === 'martin_session') {
+      renderInclineWarmupCard(ex);
+    } 
+    else {
       renderSingleSetCard();
     }
-  }, 1500);
+  }, 1800);
 }
 
 function renderWarmupCard(ex) {
   const container = document.getElementById('card-container');
-  
-  // Szacowanie ciężaru roboczego
   const lastMWeight = parseFloat(historyData['latzug_martin']?.weight || 54);
   const lastAWeight = parseFloat(historyData['latzug_ana']?.weight || 50);
 
@@ -96,28 +99,51 @@ function renderWarmupCard(ex) {
     <div class="card">
       <div style="text-align: center; margin-bottom: 16px;">
         <span style="font-size: 11px; color: var(--martin-color); font-weight: 800; letter-spacing: 1px;">ROZGRZEWKA PLECÓW 🩸</span>
-        <h2 style="margin: 4px 0;">Szybka Rozgrzewka (Latzug)</h2>
+        <h2 style="margin: 4px 0;">Rozgrzewka (Latzug)</h2>
         <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Wykonajcie 2 serie aktywacyjne przed seriami roboczymi</p>
       </div>
 
       <div class="person-box martin">
         <div class="person-title">MARTIN (Cel Roboczy: ~${lastMWeight} kg)</div>
         <div style="font-size: 13px; margin-top: 6px; color: var(--text-main);">
-          • <strong>Seria 1 (50%):</strong> ~${m50} kg × 10-12 powt (Pobudzenie)<br>
-          • <strong>Seria 2 (75%):</strong> ~${m75} kg × 4-5 powt (Bez zmęczenia!)
+          • <strong>Seria 1 (50%):</strong> ~${m50} kg × 10-12 powt<br>
+          • <strong>Seria 2 (75%):</strong> ~${m75} kg × 4-5 powt
         </div>
       </div>
 
       <div class="person-box ana">
         <div class="person-title">ANA (Cel Roboczy: ~${lastAWeight} kg)</div>
         <div style="font-size: 13px; margin-top: 6px; color: var(--text-main);">
-          • <strong>Seria 1 (50%):</strong> ~${a50} kg × 10-12 powt (Pobudzenie)<br>
-          • <strong>Seria 2 (75%):</strong> ~${a75} kg × 4-5 powt (Bez zmęczenia!)
+          • <strong>Seria 1 (50%):</strong> ~${a50} kg × 10-12 powt<br>
+          • <strong>Seria 2 (75%):</strong> ~${a75} kg × 4-5 powt
         </div>
       </div>
 
       <button onclick="window.finishWarmup()" class="btn-submit">
         Rozgrzani! Zaczynamy Serie Robocze →
+      </button>
+    </div>
+  `;
+}
+
+function renderInclineWarmupCard(ex) {
+  const container = document.getElementById('card-container');
+  container.innerHTML = `
+    <div class="card" style="border: 1px solid var(--martin-color);">
+      <div style="text-align: center; margin-bottom: 16px;">
+        <span style="font-size: 11px; color: var(--martin-color); font-weight: 800; letter-spacing: 1px;">PRZYPOMNIENIE O ROZGRZEWCE 🎯</span>
+        <h2 style="margin: 4px 0;">Wyciskanie Skos (Martin)</h2>
+      </div>
+
+      <div class="person-box martin">
+        <div class="person-title">MARTIN</div>
+        <div style="font-size: 13px; margin-top: 6px; color: var(--text-main); line-height: 1.4;">
+          ⚠️ Pamiętaj o zrobić <strong>1-2 lekkie serie rozgrzewkowe</strong> na klatkę przed pierwszą serią roboczą, żeby oszczędzić barki i przygotować stawy!
+        </div>
+      </div>
+
+      <button onclick="window.finishWarmup()" class="btn-submit">
+        Rozgrzany, Lecimy z Serią 1 →
       </button>
     </div>
   `;
@@ -137,7 +163,6 @@ function renderSingleSetCard() {
     return;
   }
 
-  // Aktualizacja Paska Postępu
   const progressPercent = ((currentExIndex) / list.length) * 100;
   document.getElementById('progress-fill').style.width = `${progressPercent}%`;
   document.getElementById('progress-text').innerText = `Ćwiczenie ${currentExIndex + 1} z ${list.length}`;
@@ -270,18 +295,30 @@ function getSuggestionMessage(name, reps, setNum, totalSets, exId, lastReps) {
   const thresholdIncrease = isIncline ? (reps >= 12) : (reps > 10);
 
   if (setNum === 1 && totalSets > 1) {
+    // 1. Mniej powtórzeń niż ostatnio
     if (lastReps && reps < lastReps && reps >= 6) {
       return `⏱️ <strong>${name}</strong>: Mniej powtórzeń niż ostatnio (${reps} vs ${lastReps}). <strong>Zrób dłuższą przerwę przed 2. serią</strong>.`;
     }
+    // 2. Bardzo słaba seria (< 6 powt)
     if (reps < 6) {
       return `⚠️ <strong>${name}</strong>: Mniej niż 6 powtórzeń. <strong>Zmniejsz ciężar na 2. serię!</strong>`;
     }
+    // 3. Przekroczenie progu maksymalnego (zwiększenie ciężaru)
     if (thresholdIncrease) {
-      return `🚀 <strong>${name}</strong>: Dobry wynik (${reps} powt.)! <strong>Dołóż ciężaru na 2. serię!</strong>`;
+      return `🚀 <strong>${name}</strong>: Kapitalny wynik (${reps} powt.)! <strong>Dołóż ciężaru na 2. serię!</strong>`;
+    }
+    // 4. Progres o +1 powtórzenie (lub więcej, ale poniżej progu zmiany ciężaru)
+    if (lastReps && reps > lastReps) {
+      const diff = reps - lastReps;
+      return `👏 <strong>${name}</strong>: Brawo! Progres o <strong>+${diff} powt.</strong> w porównaniu do poprzedniego treningu (${reps} vs ${lastReps})!`;
     }
   } else {
     if (reps < 6) return `💡 <strong>${name}</strong>: Ciężka seria (< 6 powt). Na następnym treningu zacznij od mniejszego ciężaru.`;
     if (thresholdIncrease) return `🔥 <strong>${name}</strong>: Świetny wynik! Od NASTĘPNEGO treningu zwiększasz ciężar.`;
+    if (lastReps && reps > lastReps) {
+      const diff = reps - lastReps;
+      return `👏 <strong>${name}</strong>: Piękny finisz! Progres o <strong>+${diff} powt.</strong> względem ostatniego treningu!`;
+    }
   }
   return null;
 }
@@ -338,7 +375,7 @@ function renderCompletionScreen() {
     <div class="card" style="text-align: center; padding: 40px 20px;">
       <span style="font-size: 60px; display: block; margin-bottom: 12px;">🎉</span>
       <h2>Trening Zakończony!</h2>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Świetna robota! Wszystkie wyniki zostały bezpowrotnie zapisane w bazie.</p>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Świetna robota! Wszystkie wyniki zostały trwale zapisane.</p>
       <button onclick="location.reload()" class="btn-submit">Powrót do Menu</button>
     </div>
   `;

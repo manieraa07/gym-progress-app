@@ -1,24 +1,82 @@
-export const initialData = {
-  martin: [
-    { id: 'm_lat', name: '1. Ściąganie z góry (Rozbieżna)', target: '8-10 powt.', last: '54 kg x 8', img: '' },
-    { id: 'm_row', name: '2. Wiosłowanie w siadzie (Seated Row)', target: '8-10 powt.', last: '54 kg x 7', img: '' },
-    { id: 'm_incline', name: '3. Wyciskanie na skosie dodatnim', target: '6-8 powt.', last: '5 kg x 8', img: '' },
-    { id: 'm_shoulder', name: '4. Shoulder Press na maszynie', target: '8 powt.', last: '14 kg x 8 / Bary: 22 kg x 7-8', img: '' },
-    { id: 'm_pecdec', name: '5. Rozpiętki na Pec-Decu', target: '8-10 powt.', last: '36 kg x 8', img: '' },
-    { id: 'm_side', name: '6. Wznosy bokiem', target: '10-12 powt.', last: '36 kg x 8', img: '' },
-    { id: 'm_overhead', name: '7. Overhead Triceps Extension', target: '8-10 powt.', last: '10 kg x 7 (wyciąg: 18 kg)', img: '' },
-    { id: 'm_triceps', name: '8. Triceps Extension na maszynie', target: '8-10 powt.', last: '12 kg x 11 / 14 kg x 6', img: '' },
-    { id: 'm_biceps', name: '9. Biceps na modlitewniku (Maszyna / Hantla)', target: '10-12 powt.', last: '5 kg x 20 (maszyna: 32 kg x 9)', img: '' }
+export const workoutPlan = {
+  martin_session: [
+    // Wspólne ćwiczenia (Martin + Ana)
+    { 
+      id: 'lat_pull', 
+      name: '1. Ściąganie z góry (Rozbieżna)', 
+      isJoint: true, 
+      lastMartin: '54 kg x 8', 
+      lastAna: '50 kg x 11',
+      maxRepsTarget: 10
+    },
+    { 
+      id: 'rowing', 
+      name: '2. Wiosłowanie w siadzie (Seated Row)', 
+      isJoint: true, 
+      lastMartin: '54 kg x 7', 
+      lastAna: '50 kg x 6-7',
+      maxRepsTarget: 10
+    },
+    // Tylko Martin
+    { 
+      id: 'm_incline', 
+      name: '3. Wyciskanie na skosie dodatnim', 
+      isJoint: false, 
+      lastMartin: '5 kg x 8',
+      maxRepsTarget: 10
+    },
+    { 
+      id: 'm_shoulder', 
+      name: '4. Shoulder Press na maszynie', 
+      isJoint: false, 
+      lastMartin: '14 kg x 8',
+      maxRepsTarget: 10
+    },
+    { 
+      id: 'm_pecdec', 
+      name: '5. Rozpiętki na Pec-Decu', 
+      isJoint: false, 
+      lastMartin: '36 kg x 8',
+      maxRepsTarget: 10
+    },
+    // Wspólne kontynuacja
+    { 
+      id: 'side_raises', 
+      name: '6. Wznosy bokiem', 
+      isJoint: true, 
+      lastMartin: '36 kg x 8', 
+      lastAna: '36 kg x 8',
+      maxRepsTarget: 12
+    },
+    { 
+      id: 'overhead', 
+      name: '7. Overhead Triceps Extension', 
+      isJoint: true, 
+      lastMartin: '10 kg x 7', 
+      lastAna: '12 kg x 10',
+      maxRepsTarget: 10
+    },
+    { 
+      id: 'triceps_mach', 
+      name: '8. Triceps Extension na maszynie', 
+      isJoint: true, 
+      lastMartin: '12 kg x 11', 
+      lastAna: '27 kg',
+      maxRepsTarget: 10
+    },
+    { 
+      id: 'biceps_mach', 
+      name: '9. Biceps na modlitewniku / maszynie', 
+      isJoint: true, 
+      lastMartin: '5 kg x 20', 
+      lastAna: '18 kg',
+      maxRepsTarget: 12
+    }
   ],
-  ana: [
-    { id: 'a_lat', name: '1. Ściąganie z góry (Rozbieżna)', target: '8-10 powt.', last: '50 kg x 11', img: '' },
-    { id: 'a_row', name: '2. Wiosłowanie w siadzie (Seated Row)', target: '8-10 powt.', last: '50 kg x 6-7', img: '' },
-    { id: 'a_legpress', name: '3. Suwnica / Beinpresse', target: '8-10 powt.', last: '72 kg x 8', img: '' },
-    { id: 'a_hamstrings', name: '4. Uginanie nóg (Dwugłowy)', target: '10-12 powt.', last: '27 kg', img: '' },
-    { id: 'a_abductor', name: '5. Abduktor (Pośladki)', target: '12 powt.', last: '45 kg x 12', img: '' },
-    { id: 'a_calves', name: '6. Łydki', target: '12-15 powt.', last: '20 kg', img: '' },
-    { id: 'a_overhead', name: '7. Overhead Triceps Extension', target: '8-10 powt.', last: '12 kg x 10', img: '' },
-    { id: 'a_triceps', name: '8. Triceps na maszynie', target: '8-10 powt.', last: '27 kg (pushdown: 17 kg)', img: '' },
-    { id: 'a_biceps', name: '9. Biceps na maszynie', target: '10-12 powt.', last: '18 kg', img: '' }
+  ana_solo: [
+    { id: 'a_legpress', name: '1. Suwnica / Beinpresse', isJoint: false, lastAna: '72 kg x 8', maxRepsTarget: 10 },
+    { id: 'a_hamstrings', name: '2. Uginanie nóg (Dwugłowy)', isJoint: false, lastAna: '27 kg', maxRepsTarget: 12 },
+    { id: 'a_abductor', name: '3. Abduktor (Pośladki)', isJoint: false, lastAna: '45 kg x 12', maxRepsTarget: 12 },
+    { id: 'a_calves', name: '4. Łydki', isJoint: false, lastAna: '20 kg', maxRepsTarget: 15 }
   ]
 };

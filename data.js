@@ -26,7 +26,7 @@ export const initialNotes = {
 
 export const workoutPlan = {
   martin_session: [
-    { id: 'latzug', name: '1. Latzug (Ściąganie z góry)', isJoint: true, totalSets: 2, image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=500&auto=format&fit=crop' },
+    { id: 'latzug', name: '1. Latzug (Ściąganie z góry)', isJoint: true, totalSets: 2, image: 'https://www.google.com/url?sa=t&source=web&rct=j&url=https%3A%2F%2Fde.matrixfitness.com%2Fdeu%2Fstrength%2Fsingle-station%2Fg7-s33-diverging-lat-pulldown&ved=0CBYQjRxqFwoTCOCgoYzOj5YDFQAAAAAdAAAAABA4&opi=89978449' },
     { id: 'wioslowanie', name: '2. Wiosłowanie w siadzie', isJoint: true, totalSets: 2, image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=500&auto=format&fit=crop' },
     { id: 'wyciskanie_skos', name: '3. Wyciskanie skos', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=500&auto=format&fit=crop' },
     { id: 'bary', name: '4. Bary (Shoulder Press)', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=500&auto=format&fit=crop' },

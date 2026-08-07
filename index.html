@@ -1,1 +1,27 @@
+<!DOCTYPE html>
+<html lang="pl" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>GymApp - Martin & Ana</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans pb-24 min-h-screen select-none">
 
+  <header class="p-4 glass-card sticky top-0 z-40 border-b border-slate-800 flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-black tracking-wider text-emerald-400">GYM PROGRESS</h1>
+      <p class="text-xs text-slate-400">Martin & Ana Workout</p>
+    </div>
+    <button onclick="window.saveWorkout()" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shadow-lg shadow-emerald-500/20">
+      Zapisz
+    </button>
+  </header>
+
+  <main class="p-4 max-w-md mx-auto">
+    <div id="exercises-container"></div>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -3,27 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>GymApp - Focus Mode</title>
+  <title>GymApp</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans pb-10 min-h-screen select-none flex flex-col justify-between">
 
-  <header class="p-4 glass-panel sticky top-0 z-50 border-b border-slate-800/80 flex justify-between items-center backdrop-blur-xl">
+  <header class="p-4 glass-panel sticky top-0 z-50 border-b border-slate-800 flex justify-between items-center">
     <div class="flex items-center gap-2">
       <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
       <h1 class="text-base font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
         GYM PROGRESS
       </h1>
     </div>
-    <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full">
-      Focus Mode
-    </span>
+    <button onclick="location.reload()" class="text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1 rounded-full font-bold">
+      Zmień Osobę
+    </button>
   </header>
 
-  <main class="p-4 max-w-md mx-auto w-full my-auto">
-    <div id="card-container"></div>
+  <div id="user-selector" class="p-4 max-w-md mx-auto w-full my-auto space-y-4">
+    <h2 class="text-center text-xs font-bold uppercase tracking-widest text-slate-400">Kto dzisiaj trenuje?</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <button onclick="window.selectUser('martin')" class="glass-panel p-6 rounded-3xl text-center space-y-2 border-emerald-500/30 hover:border-emerald-500 transition active:scale-95">
+        <span class="text-3xl">🏋️‍♂️</span>
+        <div class="font-black text-emerald-400 text-lg">MARTIN</div>
+        <span class="text-[10px] text-slate-400 block">Trening Góry</span>
+      </button>
+      <button onclick="window.selectUser('ana')" class="glass-panel p-6 rounded-3xl text-center space-y-2 border-pink-500/30 hover:border-pink-500 transition active:scale-95">
+        <span class="text-3xl">🏋️‍♀️</span>
+        <div class="font-black text-pink-400 text-lg">ANA</div>
+        <span class="text-[10px] text-slate-400 block">Trening Dół + Góra</span>
+      </button>
+    </div>
+  </div>
+
+  <main id="workout-view" class="p-4 max-w-md mx-auto w-full my-auto hidden">
+    <div id="step-card"></div>
   </main>
 
   <script type="module" src="app.js"></script>

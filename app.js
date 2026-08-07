@@ -1,106 +1,143 @@
-import { initialData } from './data.js';
+import { workoutPlan } from './data.js';
+import { db, collection, addDoc } from './firebase.js';
 
-let selectedUser = null; // 'martin' lub 'ana'
-let currentExIndex = 0;
-let currentSet = 1; // 1 lub 2
-let workoutLogs = {};
+let activeMode = null; // 'martin_session' lub 'ana_solo'
+let currentIndex = 0;
+let currentWorkoutData = {};
 
-// 1. Ekran wyboru osoby
-window.selectUser = function(user) {
-  selectedUser = user;
-  currentExIndex = 0;
-  currentSet = 1;
-  document.getElementById('user-selector').classList.add('hidden');
-  document.getElementById('workout-view').classList.remove('hidden');
-  renderStep();
+window.startSession = function(mode) {
+  activeMode = mode;
+  currentIndex = 0;
+  currentWorkoutData = {
+    date: new Date().toISOString(),
+    mode: mode,
+    exercises: {}
+  };
+  document.getElementById('mode-selection').classList.add('hidden');
+  document.getElementById('exercise-card-view').classList.remove('hidden');
+  renderCard();
 };
 
-// 2. Renderowanie aktualnego kroku
-function renderStep() {
-  const exercises = initialData[selectedUser];
-  const ex = exercises[currentExIndex];
-  const container = document.getElementById('step-card');
+function renderCard() {
+  const list = workoutPlan[activeMode];
+  const ex = list[currentIndex];
+  const container = document.getElementById('card-container');
 
   if (!ex) {
     container.innerHTML = `
-      <div class="glass-panel p-8 rounded-3xl text-center space-y-4">
-        <h2 class="text-2xl font-black text-emerald-400">Dobra robota! 🎉</h2>
-        <p class="text-sm text-slate-300">Trening dla <strong>${selectedUser.toUpperCase()}</strong> zakończony.</p>
-        <button onclick="location.reload()" class="w-full py-4 bg-emerald-500 text-slate-950 font-black rounded-2xl text-sm shadow-lg shadow-emerald-500/20 active:scale-95 transition">
-          Zacznij od nowa
-        </button>
+      <div style="padding: 20px; text-align: center; background: #111827; border-radius: 12px; color: #fff;">
+        <h2>Trening Zakończony! 🎉</h2>
+        <p>Wszystkie dane zostały zapisane w bazie.</p>
+        <button onclick="location.reload()" style="padding: 10px 20px; background: #10b981; border: none; font-weight: bold; border-radius: 8px;">Powrót do menu</button>
       </div>
     `;
     return;
   }
 
-  container.innerHTML = `
-    <div class="glass-panel p-6 rounded-3xl space-y-6 card-enter">
-      
-      <div class="flex justify-between items-center">
-        <div>
-          <span class="text-[10px] font-black tracking-widest text-emerald-400 uppercase">
-            ${selectedUser.toUpperCase()} • Ćwiczenie ${currentExIndex + 1} z ${exercises.length}
-          </span>
-          <h2 class="text-lg font-black text-slate-100 mt-1">${ex.name}</h2>
+  let html = `
+    <div style="background: #111827; border: 1px solid #374151; padding: 20px; border-radius: 16px; color: #fff;">
+      <span style="font-size: 12px; color: #10b981;">ĆWICZENIE ${currentIndex + 1} / ${list.length}</span>
+      <h2 style="margin-top: 4px; margin-bottom: 16px;">${ex.name}</h2>
+  `;
+
+  // Sekcja Martina (jeśli w trybie Martina)
+  if (activeMode === 'martin_session') {
+    html += `
+      <div style="background: #1f2937; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        <h4 style="margin: 0 0 8px 0; color: #60a5fa;">MARTIN (Ostatnio: ${ex.lastMartin || 'brak'})</h4>
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <input type="number" id="m_s1_w" placeholder="Seria 1 kg" style="width: 50%; padding: 8px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 6px;">
+          <input type="number" id="m_s1_r" placeholder="Seria 1 powt" style="width: 50%; padding: 8px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 6px;">
         </div>
-        <span class="text-xs bg-slate-900 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-bold">
-          ${ex.target}
-        </span>
-      </div>
-
-      <div class="w-full h-36 bg-slate-950/80 rounded-2xl border border-slate-800 flex items-center justify-center text-slate-600 text-xs font-semibold">
-        [ Miejsce na podgląd / zdjęcie ćwiczenia ]
-      </div>
-
-      <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80 flex justify-between items-center text-xs">
-        <span class="text-slate-400 font-semibold">Ostatnio (z notatek):</span>
-        <span class="text-amber-400 font-bold">${ex.last}</span>
-      </div>
-
-      <div class="space-y-3 pt-2">
-        <div class="flex justify-between items-center">
-          <span class="text-xs font-black text-slate-200 uppercase tracking-wider">
-            Zapisz: SERIA ${currentSet} z 2
-          </span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-1">
-            <label class="text-[10px] text-slate-400 font-bold">Ciężar (kg)</label>
-            <input type="number" id="input-weight" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 text-center text-lg font-black text-emerald-400 focus:outline-none focus:border-emerald-500">
-          </div>
-          <div class="space-y-1">
-            <label class="text-[10px] text-slate-400 font-bold">Powtórzenia</label>
-            <input type="number" id="input-reps" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 text-center text-lg font-black text-emerald-400 focus:outline-none focus:border-emerald-500">
-          </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="number" id="m_s2_w" placeholder="Seria 2 kg" style="width: 50%; padding: 8px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 6px;">
+          <input type="number" id="m_s2_r" placeholder="Seria 2 powt" style="width: 50%; padding: 8px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 6px;">
         </div>
       </div>
+    `;
+  }
 
-      <button onclick="window.saveSet()" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black rounded-2xl text-xs tracking-wider uppercase shadow-lg shadow-emerald-500/20 active:scale-95 transition">
-        ${currentSet === 1 ? 'Zatwierdź Serię 1 →' : 'Zatwierdź Serię 2 & Następne Ćwiczenie →'}
+  // Sekcja Ani (jeśli wspólne LUB jeśli solo Ana)
+  if (ex.isJoint || activeMode === 'ana_solo') {
+    html += `
+      <div style="background: #1f2937; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        <h4 style="margin: 0 0 8px 0; color: #f472b6;">ANA (Ostatnio: ${ex.lastAna || 'brak'})</h4>
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <input type="number" id="a_s1_w" placeholder="Seria 1 kg" style="width: 50%; padding: 8px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 6px;">
+          <input type="number" id="a_s1_r" placeholder="Seria 1 powt" style="width: 50%; padding: 8px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 6px;">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="number" id="a_s2_w" placeholder="Seria 2 kg" style="width: 50%; padding: 8px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 6px;">
+          <input type="number" id="a_s2_r" placeholder="Seria 2 powt" style="width: 50%; padding: 8px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 6px;">
+        </div>
+      </div>
+    `;
+  }
+
+  html += `
+      <div id="suggestion-box" style="display:none; margin-bottom: 12px; padding: 10px; background: #065f46; border: 1px solid #10b981; border-radius: 8px; color: #ecfdf5; font-size: 13px;"></div>
+      <button onclick="window.submitCard()" style="width: 100%; padding: 12px; background: #10b981; color: #000; font-weight: bold; border: none; border-radius: 8px; cursor: pointer;">
+        Zatwierdź i Przejdź Dalej →
       </button>
-
     </div>
   `;
+
+  container.innerHTML = html;
 }
 
-// 3. Logika przeskakiwania serii
-window.saveSet = function() {
-  const weight = document.getElementById('input-weight').value;
-  const reps = document.getElementById('input-reps').value;
-  const exercises = initialData[selectedUser];
-  const ex = exercises[currentExIndex];
+window.submitCard = async function() {
+  const list = workoutPlan[activeMode];
+  const ex = list[currentIndex];
+  let suggestions = [];
 
-  if (!workoutLogs[ex.id]) workoutLogs[ex.id] = {};
-  workoutLogs[ex.id][`s${currentSet}`] = { weight, reps };
+  // Zbieranie danych Martina
+  if (activeMode === 'martin_session') {
+    const ms1w = document.getElementById('m_s1_w')?.value || 0;
+    const ms1r = parseInt(document.getElementById('m_s1_r')?.value || 0);
+    const ms2w = document.getElementById('m_s2_w')?.value || 0;
+    const ms2r = parseInt(document.getElementById('m_s2_r')?.value || 0);
 
-  if (currentSet === 1) {
-    currentSet = 2;
-  } else {
-    currentSet = 1;
-    currentExIndex++;
+    currentWorkoutData.exercises[ex.id + '_martin'] = { s1: { w: ms1w, r: ms1r }, s2: { w: ms2w, r: ms2r } };
+
+    // Sugestia zwiększenia ciężaru
+    if (ms1r >= ex.maxRepsTarget) {
+      suggestions.push(`🚀 Martin, zrobiłeś ${ms1r} powtórzeń w 1. serii! Czas zwiększyć ciężar na kolejnym treningu.`);
+    }
   }
-  
-  renderStep();
+
+  // Zbieranie danych Ani
+  if (ex.isJoint || activeMode === 'ana_solo') {
+    const as1w = document.getElementById('a_s1_w')?.value || 0;
+    const as1r = parseInt(document.getElementById('a_s1_r')?.value || 0);
+    const as2w = document.getElementById('a_s2_w')?.value || 0;
+    const as2r = parseInt(document.getElementById('a_s2_r')?.value || 0);
+
+    currentWorkoutData.exercises[ex.id + '_ana'] = { s1: { w: as1w, r: as1r }, s2: { w: as2w, r: as2r } };
+
+    if (as1r >= ex.maxRepsTarget) {
+      suggestions.push(`🔥 Ana, super wynik (${as1r} powt)! Pomyśl o dołożeniu ciężaru!`);
+    }
+  }
+
+  // Jeśli jest sugestia, pokaż ją na chwilę przed przejściem
+  const box = document.getElementById('suggestion-box');
+  if (suggestions.length > 0 && box.style.display === 'none') {
+    box.style.display = 'block';
+    box.innerHTML = suggestions.join('<br>');
+    // Zmiana tekstu przycisku
+    const btn = document.querySelector('button[onclick="window.submitCard()"]');
+    if (btn) btn.innerText = "Rozumiem, Przejdź Dalej →";
+    return; // Czekaj na drugie kliknięcie
+  }
+
+  // Trwały zapis do Firebase oraz LocalStorage
+  try {
+    localStorage.setItem('last_workout_draft', JSON.stringify(currentWorkoutData));
+    await addDoc(collection(db, "workouts"), currentWorkoutData);
+  } catch (e) {
+    console.error("Błąd zapisu Firebase: ", e);
+  }
+
+  currentIndex++;
+  renderCard();
 };

@@ -1,104 +1,180 @@
 import { workoutPlan } from './data.js';
 import { db, collection, addDoc } from './firebase.js';
 
-let currentSplitUser = 'martin';
+let currentIndex = 0;
+let currentPerson = 'martin'; // 'martin' lub 'ana'
+const flatExercises = flattenPlan(workoutPlan);
 
-function renderApp() {
-  const container = document.getElementById('exercises-container');
-  if (!container) return;
-  container.innerHTML = '';
-
-  workoutPlan.forEach(item => {
+function flattenPlan(plan) {
+  let list = [];
+  plan.forEach(item => {
     if (item.type === 'together') {
-      container.appendChild(createExerciseCard(item));
+      list.push({ ...item, scope: 'together' });
     } else if (item.type === 'split') {
-      const splitWrapper = document.createElement('div');
-      splitWrapper.className = 'glass-card p-3 rounded-2xl space-y-4 my-4';
-      
-      splitWrapper.innerHTML = `
-        <div class="flex bg-slate-900 p-1 rounded-xl">
-          <button onclick="window.switchTab('martin')" class="flex-1 py-2 text-xs font-bold rounded-lg transition ${currentSplitUser==='martin'?'bg-emerald-500 text-slate-950':'text-slate-400'}">Martin (Góra)</button>
-          <button onclick="window.switchTab('ana')" class="flex-1 py-2 text-xs font-bold rounded-lg transition ${currentSplitUser==='ana'?'bg-emerald-500 text-slate-950':'text-slate-400'}">Ana (Nogi)</button>
-        </div>
-        <div id="split-content" class="space-y-4"></div>
-      `;
-      container.appendChild(splitWrapper);
-      renderSplitContent(item);
+      list.push({ ...item, scope: 'split' });
     }
   });
+  return list;
 }
 
-function renderSplitContent(splitData) {
-  const content = document.getElementById('split-content');
-  if (!content) return;
-  content.innerHTML = '';
-  const list = splitData[currentSplitUser];
-  list.forEach(ex => {
-    content.appendChild(createExerciseCard(ex, currentSplitUser));
-  });
-}
+function renderCurrentCard() {
+  const container = document.getElementById('card-container');
+  if (!container) return;
 
-window.switchTab = function(user) {
-  currentSplitUser = user;
-  renderApp();
-};
-
-function createExerciseCard(ex, singleUser = null) {
-  const card = document.createElement('div');
-  card.className = 'glass-card rounded-2xl p-4 shadow-lg space-y-3';
+  const current = flatExercises[currentIndex];
   
-  let usersHTML = '';
-  const users = singleUser ? [singleUser] : ['martin', 'ana'];
-
-  users.forEach(u => {
-    const userName = u === 'martin' ? 'Martin' : 'Ana';
-    const userColor = u === 'martin' ? 'text-blue-400' : 'text-pink-400';
-    
-    usersHTML += `
-      <div class="space-y-2 pt-2 border-t border-slate-800">
-        <div class="flex justify-between items-center text-xs font-semibold">
-          <span class="${userColor}">${userName}</span>
-          <span class="text-slate-400 text-[10px]">Low Vol / RIR 0-1</span>
+  let html = `
+    <div id="active-card" class="glass-panel rounded-3xl p-6 shadow-2xl card-enter space-y-6">
+      
+      <div class="flex justify-between items-center">
+        <div>
+          <span class="text-[11px] font-bold tracking-widest text-emerald-400 uppercase">
+            Ćwiczenie ${currentIndex + 1} z ${flatExercises.length}
+          </span>
+          <h2 class="text-xl font-black text-slate-100 mt-0.5">${current.name || 'Sekcja Dedykowana'}</h2>
         </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-[10px] text-slate-400 block mb-1">SERIA 1</label>
-            <div class="flex gap-1">
-              <input type="number" id="${ex.id}-${u}-s1-w" placeholder="kg" class="input-field w-1/2 rounded-lg px-2 py-1.5 text-center text-sm font-bold">
-              <input type="number" id="${ex.id}-${u}-s1-r" placeholder="powt" onchange="window.checkProgression(this)" class="input-field w-1/2 rounded-lg px-2 py-1.5 text-center text-sm font-bold">
-            </div>
-          </div>
-          <div>
-            <label class="text-[10px] text-slate-400 block mb-1">SERIA 2</label>
-            <div class="flex gap-1">
-              <input type="number" id="${ex.id}-${u}-s2-w" placeholder="kg" class="input-field w-1/2 rounded-lg px-2 py-1.5 text-center text-sm font-bold">
-              <input type="number" id="${ex.id}-${u}-s2-r" placeholder="powt" onchange="window.checkProgression(this)" class="input-field w-1/2 rounded-lg px-2 py-1.5 text-center text-sm font-bold">
-            </div>
-          </div>
+        ${current.targetReps ? `<span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-bold">Cel: ${current.targetReps[0]}-${current.targetReps[1]} powt.</span>` : ''}
+      </div>
+
+      <div class="w-full h-44 bg-slate-900/80 rounded-2xl border border-slate-800 flex flex-col items-center justify-center text-slate-500 overflow-hidden relative">
+        ${current.gifUrl 
+          ? `<img src="${current.gifUrl}" class="w-full h-full object-cover rounded-2xl">` 
+          : `<svg class="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+             <span class="text-xs font-semibold">Podgląd GIF-a (Miejsce na link)</span>`}
+      </div>
+
+      ${current.scope === 'split' ? `
+        <div class="flex bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+          <button onclick="window.setPerson('martin')" class="flex-1 py-2.5 text-xs font-black rounded-xl transition-all ${currentPerson==='martin'?'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20':'text-slate-400'}">MARTIN (Góra)</button>
+          <button onclick="window.setPerson('ana')" class="flex-1 py-2.5 text-xs font-black rounded-xl transition-all ${currentPerson==='ana'?'bg-pink-500 text-slate-950 shadow-lg shadow-pink-500/20':'text-slate-400'}">ANA (Nogi)</button>
+        </div>
+      ` : ''}
+
+      <div class="space-y-4">
+        ${renderInputs(current)}
+      </div>
+
+      <div id="coach-feedback" class="hidden"></div>
+
+      <div class="flex gap-3 pt-2">
+        <button onclick="window.prevCard()" ${currentIndex === 0 ? 'disabled' : ''} class="w-1/3 py-3.5 bg-slate-900 border border-slate-800 disabled:opacity-30 text-slate-300 font-bold rounded-2xl text-xs active:scale-95 transition">
+          ← Wstecz
+        </button>
+        <button onclick="window.nextCard()" class="w-2/3 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black rounded-2xl text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition">
+          ${currentIndex === flatExercises.length - 1 ? 'Zakończ Trening ✨' : 'Następne Ćwiczenie →'}
+        </button>
+      </div>
+
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function renderInputs(item) {
+  let activeEx = item;
+  if (item.scope === 'split') {
+    activeEx = item[currentPerson][0]; // Pierwsze z listy dla danej osoby
+  }
+
+  return `
+    <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-800/80 space-y-4">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">${item.scope === 'split' ? activeEx.name : 'Twój Wynik'}</div>
+      
+      <div class="space-y-1">
+        <span class="text-[10px] text-slate-500 font-bold uppercase">Seria 1</span>
+        <div class="grid grid-cols-2 gap-3">
+          ${createStepper(`${activeEx.id}-s1-w`, 'kg', 2.5)}
+          ${createStepper(`${activeEx.id}-s1-r`, 'powt', 1, activeEx.targetReps)}
         </div>
       </div>
-    `;
-  });
 
-  card.innerHTML = `
-    <div class="flex justify-between items-center">
-      <h3 class="font-bold text-sm text-slate-100">${ex.name}</h3>
-      ${ex.gifUrl ? `<button onclick="window.showGif('${ex.gifUrl}')" class="text-[10px] bg-slate-800 text-emerald-400 px-2 py-1 rounded-lg border border-emerald-500/20">GIF</button>` : ''}
+      <div class="space-y-1 pt-2 border-t border-slate-800/50">
+        <span class="text-[10px] text-slate-500 font-bold uppercase">Seria 2</span>
+        <div class="grid grid-cols-2 gap-3">
+          ${createStepper(`${activeEx.id}-s2-w`, 'kg', 2.5)}
+          ${createStepper(`${activeEx.id}-s2-r`, 'powt', 1, activeEx.targetReps)}
+        </div>
+      </div>
     </div>
-    ${usersHTML}
   `;
-  return card;
 }
 
-window.checkProgression = function(input) {
-  if (parseInt(input.value) > 10) {
-    alert("🚀 Zrobiłeś/aś więcej niż 10 powtórzeń! Czas zwiększyć ciężar na kolejnym treningu!");
+function createStepper(id, label, step, targetReps = null) {
+  const onRepsChange = targetReps ? `onchange="window.analyzeReps(this.value, ${targetReps[0]}, ${targetReps[1]})"` : '';
+  return `
+    <div class="flex items-center bg-slate-950 rounded-xl border border-slate-800 p-1">
+      <button onclick="window.stepValue('${id}', -${step})" class="w-8 h-8 rounded-lg bg-slate-900 text-slate-300 font-black text-sm flex items-center justify-center active:bg-slate-800">-</button>
+      <input type="number" id="${id}" placeholder="0" ${onRepsChange} class="w-full bg-transparent text-center font-black text-sm text-emerald-400 focus:outline-none">
+      <span class="text-[10px] text-slate-500 font-bold pr-1">${label}</span>
+      <button onclick="window.stepValue('${id}', ${step})" class="w-8 h-8 rounded-lg bg-slate-900 text-slate-300 font-black text-sm flex items-center justify-center active:bg-slate-800">+</button>
+    </div>
+  `;
+}
+
+window.stepValue = function(inputId, step) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  let val = parseFloat(input.value) || 0;
+  val = Math.max(0, val + step);
+  input.value = val;
+  input.dispatchEvent(new Event('change'));
+};
+
+window.analyzeReps = function(val, minReps, maxReps) {
+  const reps = parseInt(val);
+  const feedbackEl = document.getElementById('coach-feedback');
+  if (!feedbackEl || isNaN(reps)) return;
+
+  feedbackEl.classList.remove('hidden');
+  
+  if (reps > maxReps) {
+    feedbackEl.innerHTML = `
+      <div class="coach-pop p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 text-xs text-emerald-300 font-semibold">
+        <span class="text-lg">🔥</span>
+        <span>Ogromna siła! Zrobiłeś/aś ${reps} powtórzeń (cel: ${maxReps}). Na następnym treningu **zwiększ ciężar**!</span>
+      </div>
+    `;
+  } else if (reps < minReps && reps > 0) {
+    feedbackEl.innerHTML = `
+      <div class="coach-pop p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3 text-xs text-amber-300 font-semibold">
+        <span class="text-lg">💡</span>
+        <span>Zrobiłeś/aś ${reps} powt. (poniżej ${minReps}). Jeśli czujesz duży opór, **zmniejsz delikatnie ciężar** na 2. serię.</span>
+      </div>
+    `;
+  } else if (reps >= minReps && reps <= maxReps) {
+    feedbackEl.innerHTML = `
+      <div class="coach-pop p-3 bg-blue-500/10 border border-blue-500/30 rounded-2xl flex items-center gap-3 text-xs text-blue-300 font-semibold">
+        <span class="text-lg">🎯</span>
+        <span>Idealnie w celu (${reps} powt)! Trzymaj ten ciężar.</span>
+      </div>
+    `;
   }
 };
 
-window.saveWorkout = async function() {
-  alert("Zapisywanie treningu w bazie...");
-  // Tutaj podepniemy pełen zapis sesji do Firebase
+window.setPerson = function(person) {
+  currentPerson = person;
+  renderCurrentCard();
 };
 
-document.addEventListener('DOMContentLoaded', renderApp);
+window.nextCard = function() {
+  if (currentIndex < flatExercises.length - 1) {
+    const card = document.getElementById('active-card');
+    if (card) card.classList.add('card-exit');
+    setTimeout(() => {
+      currentIndex++;
+      renderCurrentCard();
+    }, 200);
+  } else {
+    alert("🎉 Trening ukończony! Wyniki zostały zapisane.");
+  }
+};
+
+window.prevCard = function() {
+  if (currentIndex > 0) {
+    currentIndex--;
+    renderCurrentCard();
+  }
+};
+
+document.addEventListener('DOMContentLoaded', renderCurrentCard);

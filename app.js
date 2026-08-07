@@ -7,9 +7,7 @@ let currentSetNumber = 1;
 let selectedRepsM = null;
 let selectedRepsA = null;
 
-// Zapamiętuje dokładnie to, co wpisaliśmy w 1. serii tego samego treningu
 let currentSessionData = {}; 
-
 let historyData = {}; 
 let currentWorkoutLogs = { date: new Date().toISOString(), entries: {} };
 
@@ -26,16 +24,12 @@ async function loadHistoryWithTimeout() {
           return lastWorkout.entries;
         }
       }
-    } catch (e) {
-      console.warn("Błąd Firebase:", e);
-    }
+    } catch (e) { console.warn("Firebase:", e); }
     return null;
   })();
 
   const result = await Promise.race([fetchPromise, timeoutPromise]);
-  if (result && result !== 'timeout') {
-    historyData = result;
-  }
+  if (result && result !== 'timeout') historyData = result;
 }
 
 window.startSession = async function(mode) {
@@ -51,31 +45,87 @@ window.startSession = async function(mode) {
   
   document.getElementById('loading-screen').classList.add('hidden');
   document.getElementById('exercise-card-view').classList.remove('hidden');
-  renderSingleSetCard();
+  
+  // Pokaż podgląd pierwszego ćwiczenia
+  showExercisePreview();
 };
 
-function getLastRecord(exId, person) {
-  const key = `${exId}_${person}`;
-  
-  // Jeśli jesteśmy w 2. serii, pokaż wynik z 1. serii DZISIEJSZEGO treningu
-  if (currentSetNumber === 2 && currentSessionData[key]) {
-    return `${currentSessionData[key].weight} kg x ${currentSessionData[key].reps} (Seria 1)`;
+function showExercisePreview() {
+  const list = workoutPlan[activeMode];
+  const ex = list[currentExIndex];
+  const container = document.getElementById('card-container');
+
+  if (!ex) {
+    renderCompletionScreen();
+    return;
   }
-  
-  // W przeciwnym razie pokaż wynik z Firebase / notatek
-  if (historyData[key]) {
-    return `${historyData[key].weight} kg x ${historyData[key].reps}`;
-  }
-  return initialNotes[person]?.[exId] || 'brak';
+
+  // Animowane tymczasowe okienko ze zdjęciem/ikoną
+  container.innerHTML = `
+    <div class="card preview-card">
+      <span class="preview-icon">🏋️‍♂️</span>
+      <span style="font-size: 11px; color: var(--accent-green); font-weight: 800; letter-spacing: 1px;">NASTĘPNE ĆWICZENIE</span>
+      <h2 style="margin: 8px 0 4px 0;">${ex.name}</h2>
+      <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Przygotuj się do rozpoczęcia serii</p>
+    </div>
+  `;
+
+  // Po 1.5 sekundy przejdź automatycznie do serii (lub rozgrzewki)
+  setTimeout(() => {
+    if (currentExIndex === 0 && currentSetNumber === 1 && activeMode === 'martin_session') {
+      renderWarmupCard(ex);
+    } else {
+      renderSingleSetCard();
+    }
+  }, 1500);
 }
 
-function getDefaultWeight(exId, person) {
-  const key = `${exId}_${person}`;
-  if (currentSessionData[key]) {
-    return currentSessionData[key].weight;
-  }
-  return historyData[key]?.weight || '';
+function renderWarmupCard(ex) {
+  const container = document.getElementById('card-container');
+  
+  // Szacowanie ciężaru roboczego
+  const lastMWeight = parseFloat(historyData['latzug_martin']?.weight || 54);
+  const lastAWeight = parseFloat(historyData['latzug_ana']?.weight || 50);
+
+  const m50 = Math.round(lastMWeight * 0.5);
+  const m75 = Math.round(lastMWeight * 0.75);
+  const a50 = Math.round(lastAWeight * 0.5);
+  const a75 = Math.round(lastAWeight * 0.75);
+
+  container.innerHTML = `
+    <div class="card">
+      <div style="text-align: center; margin-bottom: 16px;">
+        <span style="font-size: 11px; color: var(--martin-color); font-weight: 800; letter-spacing: 1px;">ROZGRZEWKA PLECÓW 🩸</span>
+        <h2 style="margin: 4px 0;">Szybka Rozgrzewka (Latzug)</h2>
+        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Wykonajcie 2 serie aktywacyjne przed seriami roboczymi</p>
+      </div>
+
+      <div class="person-box martin">
+        <div class="person-title">MARTIN (Cel Roboczy: ~${lastMWeight} kg)</div>
+        <div style="font-size: 13px; margin-top: 6px; color: var(--text-main);">
+          • <strong>Seria 1 (50%):</strong> ~${m50} kg × 10-12 powt (Pobudzenie)<br>
+          • <strong>Seria 2 (75%):</strong> ~${m75} kg × 4-5 powt (Bez zmęczenia!)
+        </div>
+      </div>
+
+      <div class="person-box ana">
+        <div class="person-title">ANA (Cel Roboczy: ~${lastAWeight} kg)</div>
+        <div style="font-size: 13px; margin-top: 6px; color: var(--text-main);">
+          • <strong>Seria 1 (50%):</strong> ~${a50} kg × 10-12 powt (Pobudzenie)<br>
+          • <strong>Seria 2 (75%):</strong> ~${a75} kg × 4-5 powt (Bez zmęczenia!)
+        </div>
+      </div>
+
+      <button onclick="window.finishWarmup()" class="btn-submit">
+        Rozgrzani! Zaczynamy Serie Robocze →
+      </button>
+    </div>
+  `;
 }
+
+window.finishWarmup = function() {
+  renderSingleSetCard();
+};
 
 function renderSingleSetCard() {
   const list = workoutPlan[activeMode];
@@ -83,27 +133,22 @@ function renderSingleSetCard() {
   const container = document.getElementById('card-container');
 
   if (!ex) {
-    container.innerHTML = `
-      <div style="padding: 24px; text-align: center; background: #111827; border-radius: 16px; color: #fff;">
-        <h2>Trening Zakończony! 🎉</h2>
-        <p style="color: #9ca3af; font-size: 14px;">Wszystkie serie zostały zapisane.</p>
-        <button onclick="location.reload()" style="margin-top: 16px; padding: 12px 24px; background: #10b981; border: none; font-weight: bold; border-radius: 8px; cursor: pointer;">Menu Główne</button>
-      </div>
-    `;
+    renderCompletionScreen();
     return;
   }
+
+  // Aktualizacja Paska Postępu
+  const progressPercent = ((currentExIndex) / list.length) * 100;
+  document.getElementById('progress-fill').style.width = `${progressPercent}%`;
+  document.getElementById('progress-text').innerText = `Ćwiczenie ${currentExIndex + 1} z ${list.length}`;
+  document.getElementById('set-badge').innerText = `SERIA ${currentSetNumber} z ${ex.totalSets}`;
 
   selectedRepsM = null;
   selectedRepsA = null;
 
   let html = `
-    <div style="background: #111827; border: 1px solid #374151; padding: 20px; border-radius: 16px; color: #fff;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <span style="font-size: 11px; color: #10b981; font-weight: bold;">ĆWICZENIE ${currentExIndex + 1} z ${list.length}</span>
-        <span style="background: #374151; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">SERIA ${currentSetNumber} z ${ex.totalSets}</span>
-      </div>
-      
-      <h2 style="margin: 0 0 16px 0; font-size: 18px;">${ex.name}</h2>
+    <div class="card">
+      <h2 style="margin: 0 0 16px 0; font-size: 20px;">${ex.name}</h2>
   `;
 
   if (activeMode === 'martin_session') {
@@ -119,7 +164,7 @@ function renderSingleSetCard() {
   }
 
   html += `
-      <button onclick="window.submitSet()" style="width: 100%; margin-top: 16px; padding: 14px; background: #10b981; color: #000; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">
+      <button onclick="window.submitSet()" class="btn-submit">
         Zatwierdź Serię ${currentSetNumber} →
       </button>
     </div>
@@ -129,27 +174,28 @@ function renderSingleSetCard() {
 }
 
 function renderPersonSection(personCode, personName, lastText, defaultWeight) {
-  const color = personCode === 'martin' ? '#60a5fa' : '#f472b6';
-  
   let repsButtons = '';
   for (let i = 1; i <= 12; i++) {
     const val = i === 12 ? '12+' : i;
     const numVal = i === 12 ? 12 : i;
-    repsButtons += `<button type="button" onclick="window.selectRep('${personCode}', ${numVal}, this)" class="rep-btn-${personCode}" style="padding: 8px; background: #000; border: 1px solid #374151; color: #fff; border-radius: 6px; font-weight: bold; font-size: 12px;">${val}</button>`;
+    repsButtons += `<button type="button" onclick="window.selectRep('${personCode}', ${numVal}, this)" class="rep-btn rep-btn-${personCode}">${val}</button>`;
   }
 
   return `
-    <div style="background: #1f2937; padding: 12px; border-radius: 10px; margin-bottom: 12px;">
-      <div style="font-size: 12px; color: ${color}; font-weight: bold; margin-bottom: 6px;">${personName} (Ostatnio: ${lastText})</div>
+    <div class="person-box ${personCode}">
+      <div class="person-header">
+        <span class="person-title">${personName}</span>
+        <span class="history-badge">🏷️ Ostatnio: ${lastText}</span>
+      </div>
       
-      <div style="margin-bottom: 8px;">
-        <label style="font-size: 10px; color: #9ca3af; display: block; margin-bottom: 2px;">Ciężar (kg)</label>
-        <input type="number" id="${personCode}_weight" value="${defaultWeight}" placeholder="Wpisz kg..." style="width: 100%; padding: 10px; background: #000; color: #fff; border: 1px solid #4b5563; border-radius: 8px; box-sizing: border-box; font-size: 16px;">
+      <div>
+        <label class="input-label">Ciężar (kg)</label>
+        <input type="number" id="${personCode}_weight" value="${defaultWeight}" placeholder="0" class="weight-input">
       </div>
 
       <div>
-        <label style="font-size: 10px; color: #9ca3af; display: block; margin-bottom: 4px;">Wybierz Powtórzenia</label>
-        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;">
+        <label class="input-label">Wykonane Powtórzenia</label>
+        <div class="reps-grid">
           ${repsButtons}
         </div>
       </div>
@@ -162,12 +208,10 @@ window.selectRep = function(person, val, btn) {
   if (person === 'ana') selectedRepsA = val;
 
   document.querySelectorAll(`.rep-btn-${person}`).forEach(b => {
-    b.style.background = '#000';
-    b.style.borderColor = '#374151';
+    b.classList.remove('selected-martin', 'selected-ana');
   });
 
-  btn.style.background = person === 'martin' ? '#2563eb' : '#db2777';
-  btn.style.borderColor = '#fff';
+  btn.classList.add(person === 'martin' ? 'selected-martin' : 'selected-ana');
 };
 
 window.submitSet = async function() {
@@ -185,7 +229,6 @@ window.submitSet = async function() {
     const keyM = `${ex.id}_martin`;
     const lastRepsM = historyData[keyM]?.reps || null;
 
-    // Zapamiętujemy wpis dla 2. serii
     currentSessionData[keyM] = { weight: wM, reps: selectedRepsM };
     currentWorkoutLogs.entries[keyM] = { weight: wM, reps: selectedRepsM };
 
@@ -213,7 +256,7 @@ window.submitSet = async function() {
   addDoc(collection(db, "workouts"), {
     ...currentWorkoutLogs,
     date: new Date().toISOString()
-  }).catch(e => console.error("Błąd zapisu w tle: ", e));
+  }).catch(e => console.error("Firebase err: ", e));
 
   if (popupMessages.length > 0) {
     showPopupCard(popupMessages, () => advanceFlow(ex));
@@ -227,21 +270,18 @@ function getSuggestionMessage(name, reps, setNum, totalSets, exId, lastReps) {
   const thresholdIncrease = isIncline ? (reps >= 12) : (reps > 10);
 
   if (setNum === 1 && totalSets > 1) {
-    // 1. Spadek powtórzeń w porównaniu do poprzedniego treningu
     if (lastReps && reps < lastReps && reps >= 6) {
-      return `⏱️ <strong>${name}</strong>: Wyszło mniej powtórzeń niż ostatnio (${reps} vs ${lastReps}). <strong>Zrób dłuższą przerwę przed 2. serią</strong> lub rozważ lekki spadek ciężaru.`;
+      return `⏱️ <strong>${name}</strong>: Mniej powtórzeń niż ostatnio (${reps} vs ${lastReps}). <strong>Zrób dłuższą przerwę przed 2. serią</strong>.`;
     }
-    // 2. Mniej niż 6 powtórzeń
     if (reps < 6) {
       return `⚠️ <strong>${name}</strong>: Mniej niż 6 powtórzeń. <strong>Zmniejsz ciężar na 2. serię!</strong>`;
     }
-    // 3. Wzrost / progres
     if (thresholdIncrease) {
       return `🚀 <strong>${name}</strong>: Dobry wynik (${reps} powt.)! <strong>Dołóż ciężaru na 2. serię!</strong>`;
     }
   } else {
-    if (reps < 6) return `💡 <strong>${name}</strong>: Ciężka seria (poniżej 6 powt). Na następnym treningu zacznij od mniejszego ciężaru.`;
-    if (thresholdIncrease) return `🔥 <strong>${name}</strong>: Świetny wynik! Od NASTĘPNEGO treningu zwiększasz ciężar bazowy.`;
+    if (reps < 6) return `💡 <strong>${name}</strong>: Ciężka seria (< 6 powt). Na następnym treningu zacznij od mniejszego ciężaru.`;
+    if (thresholdIncrease) return `🔥 <strong>${name}</strong>: Świetny wynik! Od NASTĘPNEGO treningu zwiększasz ciężar.`;
   }
   return null;
 }
@@ -249,12 +289,13 @@ function getSuggestionMessage(name, reps, setNum, totalSets, exId, lastReps) {
 function showPopupCard(messages, onConfirm) {
   const container = document.getElementById('card-container');
   container.innerHTML = `
-    <div style="background: #111827; border: 2px solid #10b981; padding: 24px; border-radius: 16px; color: #fff; text-align: center;">
-      <h3 style="margin-top: 0; color: #10b981; font-size: 18px;">Sugestia Trenera 🎯</h3>
-      <div style="margin: 20px 0; font-size: 14px; line-height: 1.5; text-align: left; background: #1f2937; padding: 12px; border-radius: 8px;">
+    <div class="card" style="border: 2px solid var(--accent-green); text-align: center;">
+      <span style="font-size: 40px; display: block; margin-bottom: 8px;">🎯</span>
+      <h3 style="margin: 0; color: var(--accent-green); font-size: 18px;">Sugestia Trenera</h3>
+      <div style="margin: 16px 0; font-size: 13px; line-height: 1.5; text-align: left; background: #090d16; padding: 12px; border-radius: 12px; border: 1px solid var(--card-border);">
         ${messages.join('<br><br>')}
       </div>
-      <button id="popup-confirm-btn" style="width: 100%; padding: 14px; background: #10b981; color: #000; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">
+      <button id="popup-confirm-btn" class="btn-submit">
         Okej, Rozumiem →
       </button>
     </div>
@@ -265,9 +306,40 @@ function showPopupCard(messages, onConfirm) {
 function advanceFlow(ex) {
   if (currentSetNumber < ex.totalSets) {
     currentSetNumber++;
+    renderSingleSetCard();
   } else {
     currentSetNumber = 1;
     currentExIndex++;
+    showExercisePreview();
   }
-  renderSingleSetCard();
+}
+
+function getLastRecord(exId, person) {
+  const key = `${exId}_${person}`;
+  if (currentSetNumber === 2 && currentSessionData[key]) {
+    return `${currentSessionData[key].weight} kg × ${currentSessionData[key].reps} (Seria 1)`;
+  }
+  if (historyData[key]) {
+    return `${historyData[key].weight} kg × ${historyData[key].reps}`;
+  }
+  return initialNotes[person]?.[exId] || 'brak';
+}
+
+function getDefaultWeight(exId, person) {
+  const key = `${exId}_${person}`;
+  if (currentSessionData[key]) return currentSessionData[key].weight;
+  return historyData[key]?.weight || '';
+}
+
+function renderCompletionScreen() {
+  document.getElementById('progress-fill').style.width = `100%`;
+  const container = document.getElementById('card-container');
+  container.innerHTML = `
+    <div class="card" style="text-align: center; padding: 40px 20px;">
+      <span style="font-size: 60px; display: block; margin-bottom: 12px;">🎉</span>
+      <h2>Trening Zakończony!</h2>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Świetna robota! Wszystkie wyniki zostały bezpowrotnie zapisane w bazie.</p>
+      <button onclick="location.reload()" class="btn-submit">Powrót do Menu</button>
+    </div>
+  `;
 }

@@ -7,10 +7,12 @@ let currentSetNumber = 1;
 let selectedRepsM = null;
 let selectedRepsA = null;
 
+// Słownik zapamiętujący ciężar wpisany w 1. serii aktualnego treningu
+let currentSessionWeights = {};
+
 let historyData = {}; 
 let currentWorkoutLogs = { date: new Date().toISOString(), entries: {} };
 
-// Bezpieczne pobieranie z czasem oczekiwania max 1.5s
 async function loadHistoryWithTimeout() {
   const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 1500));
   
@@ -33,8 +35,6 @@ async function loadHistoryWithTimeout() {
   const result = await Promise.race([fetchPromise, timeoutPromise]);
   if (result && result !== 'timeout') {
     historyData = result;
-  } else {
-    console.log("Firebase nie odpowiedział na czas – ładuję domyślne notatki.");
   }
 }
 
@@ -42,11 +42,11 @@ window.startSession = async function(mode) {
   activeMode = mode;
   currentExIndex = 0;
   currentSetNumber = 1;
+  currentSessionWeights = {};
   
   document.getElementById('mode-selection').classList.add('hidden');
   document.getElementById('loading-screen').classList.remove('hidden');
   
-  // Próbujemy pobrać dane, ale max 1.5 sekundy
   await loadHistoryWithTimeout();
   
   document.getElementById('loading-screen').classList.add('hidden');
@@ -64,6 +64,11 @@ function getLastRecord(exId, person) {
 
 function getDefaultWeight(exId, person) {
   const key = `${exId}_${person}`;
+  // 1. Jeśli wpisano już ciężar w 1. serii tego treningu, użyj go dla 2. serii
+  if (currentSessionWeights[key] !== undefined) {
+    return currentSessionWeights[key];
+  }
+  // 2. Jeśli nie, pobierz ostatni ciężar z Firebase
   return historyData[key]?.weight || '';
 }
 
@@ -172,8 +177,11 @@ window.submitSet = async function() {
       return;
     }
     
+    // Zapisujemy wpisany ciężar do bieżącej sesji, by ustawić go domyślnie w 2. serii
+    currentSessionWeights[`${ex.id}_martin`] = wM;
+
     currentWorkoutLogs.entries[`${ex.id}_martin`] = { weight: wM, reps: selectedRepsM };
-    const msg = getSuggestionMessage('Martin', selectedRepsM, currentSetNumber, ex.totalSets);
+    const msg = getSuggestionMessage('Martin', selectedRepsM, currentSetNumber, ex.totalSets, ex.id);
     if (msg) popupMessages.push(msg);
   }
 
@@ -184,12 +192,13 @@ window.submitSet = async function() {
       return;
     }
 
+    currentSessionWeights[`${ex.id}_ana`] = wA;
+
     currentWorkoutLogs.entries[`${ex.id}_ana`] = { weight: wA, reps: selectedRepsA };
-    const msg = getSuggestionMessage('Ana', selectedRepsA, currentSetNumber, ex.totalSets);
+    const msg = getSuggestionMessage('Ana', selectedRepsA, currentSetNumber, ex.totalSets, ex.id);
     if (msg) popupMessages.push(msg);
   }
 
-  // Zapis w tle (nie blokujemy przejścia użytkownikowi)
   addDoc(collection(db, "workouts"), {
     ...currentWorkoutLogs,
     date: new Date().toISOString()
@@ -202,13 +211,19 @@ window.submitSet = async function() {
   }
 };
 
-function getSuggestionMessage(name, reps, setNum, totalSets) {
+function getSuggestionMessage(name, reps, setNum, totalSets, exId) {
+  const isIncline = (exId === 'wyciskanie_skos');
+  // Progowanie dla sugestii zwiększenia ciężaru:
+  // Skos: powtórzenia >= 12 (12+)
+  // Inne ćwiczenia: powtórzenia > 10 (czyli 11 i 12+)
+  const thresholdIncrease = isIncline ? (reps >= 12) : (reps > 10);
+
   if (setNum === 1 && totalSets > 1) {
     if (reps < 6) return `⚠️ <strong>${name}</strong>: Mniej niż 6 powtórzeń. <strong>Zmniejsz ciężar na 2. serię!</strong>`;
-    if (reps >= 12) return `🚀 <strong>${name}</strong>: 12 lub więcej powtórzeń! <strong>Dołóż ciężaru na 2. serię!</strong>`;
+    if (thresholdIncrease) return `🚀 <strong>${name}</strong>: Dobry wynik (${reps} powt.)! <strong>Dołóż ciężaru na 2. serię!</strong>`;
   } else {
     if (reps < 6) return `💡 <strong>${name}</strong>: Ciężka seria (poniżej 6 powt). Na następnym treningu zacznij od mniejszego ciężaru.`;
-    if (reps >= 12) return `🔥 <strong>${name}</strong>: Rekord! Od NASTĘPNEGO treningu zwiększasz ciężar bazowy.`;
+    if (thresholdIncrease) return `🔥 <strong>${name}</strong>: Świetny wynik! Od NASTĘPNEGO treningu zwiększasz ciężar bazowy.`;
   }
   return null;
 }

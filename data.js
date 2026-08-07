@@ -1,82 +1,19 @@
 export const workoutPlan = {
   martin_session: [
-    // Wspólne ćwiczenia (Martin + Ana)
-    { 
-      id: 'lat_pull', 
-      name: '1. Ściąganie z góry (Rozbieżna)', 
-      isJoint: true, 
-      lastMartin: '54 kg x 8', 
-      lastAna: '50 kg x 11',
-      maxRepsTarget: 10
-    },
-    { 
-      id: 'rowing', 
-      name: '2. Wiosłowanie w siadzie (Seated Row)', 
-      isJoint: true, 
-      lastMartin: '54 kg x 7', 
-      lastAna: '50 kg x 6-7',
-      maxRepsTarget: 10
-    },
-    // Tylko Martin
-    { 
-      id: 'm_incline', 
-      name: '3. Wyciskanie na skosie dodatnim', 
-      isJoint: false, 
-      lastMartin: '5 kg x 8',
-      maxRepsTarget: 10
-    },
-    { 
-      id: 'm_shoulder', 
-      name: '4. Shoulder Press na maszynie', 
-      isJoint: false, 
-      lastMartin: '14 kg x 8',
-      maxRepsTarget: 10
-    },
-    { 
-      id: 'm_pecdec', 
-      name: '5. Rozpiętki na Pec-Decu', 
-      isJoint: false, 
-      lastMartin: '36 kg x 8',
-      maxRepsTarget: 10
-    },
-    // Wspólne kontynuacja
-    { 
-      id: 'side_raises', 
-      name: '6. Wznosy bokiem', 
-      isJoint: true, 
-      lastMartin: '36 kg x 8', 
-      lastAna: '36 kg x 8',
-      maxRepsTarget: 12
-    },
-    { 
-      id: 'overhead', 
-      name: '7. Overhead Triceps Extension', 
-      isJoint: true, 
-      lastMartin: '10 kg x 7', 
-      lastAna: '12 kg x 10',
-      maxRepsTarget: 10
-    },
-    { 
-      id: 'triceps_mach', 
-      name: '8. Triceps Extension na maszynie', 
-      isJoint: true, 
-      lastMartin: '12 kg x 11', 
-      lastAna: '27 kg',
-      maxRepsTarget: 10
-    },
-    { 
-      id: 'biceps_mach', 
-      name: '9. Biceps na modlitewniku / maszynie', 
-      isJoint: true, 
-      lastMartin: '5 kg x 20', 
-      lastAna: '18 kg',
-      maxRepsTarget: 12
-    }
+    { id: 'latzug', name: '1. Latzug (Ściąganie z góry)', isJoint: true, totalSets: 2, lastM: '54 kg x 8', lastA: '50 kg x 11', targetReps: 10 },
+    { id: 'wioslowanie', name: '2. Wiosłowanie w siadzie', isJoint: true, totalSets: 2, lastM: '54 kg x 7', lastA: '50 kg x 6-7', targetReps: 10 },
+    { id: 'wyciskanie_skos', name: '3. Wyciskanie skos', isJoint: false, totalSets: 2, lastM: '5 kg x 8', lastA: '-', targetReps: 10 },
+    { id: 'bary', name: '4. Bary (Shoulder Press)', isJoint: false, totalSets: 2, lastM: '14 kg x 8 / 22 kg x 7-8', lastA: '-', targetReps: 10 },
+    { id: 'rozpietki', name: '5. Rozpiętki na Pec-Decu', isJoint: false, totalSets: 2, lastM: '36 kg x 8', lastA: '-', targetReps: 10 },
+    { id: 'overhead_triceps', name: '6. Overhead Triceps', isJoint: true, totalSets: 1, lastM: '10 kg x 7', lastA: '12 kg x 10', targetReps: 10 },
+    { id: 'pushdown_triceps', name: '7. Pushdown Triceps', isJoint: true, totalSets: 1, lastM: '12 kg x 11', lastA: '17 kg x 5-6', targetReps: 10 },
+    { id: 'biceps_maszyna', name: '8. Biceps maszyna siedząca', isJoint: true, totalSets: 2, lastM: '32 kg x 9 / 5 kg x 20', lastA: '18 kg', targetReps: 12 },
+    { id: 'wznosy', name: '9. Wznosy bokiem', isJoint: true, totalSets: 2, lastM: '36 kg x 8', lastA: '36 kg x 8', targetReps: 12 }
   ],
   ana_solo: [
-    { id: 'a_legpress', name: '1. Suwnica / Beinpresse', isJoint: false, lastAna: '72 kg x 8', maxRepsTarget: 10 },
-    { id: 'a_hamstrings', name: '2. Uginanie nóg (Dwugłowy)', isJoint: false, lastAna: '27 kg', maxRepsTarget: 12 },
-    { id: 'a_abductor', name: '3. Abduktor (Pośladki)', isJoint: false, lastAna: '45 kg x 12', maxRepsTarget: 12 },
-    { id: 'a_calves', name: '4. Łydki', isJoint: false, lastAna: '20 kg', maxRepsTarget: 15 }
+    { id: 'a_legpress', name: '1. Suwnica / Beinpresse', isJoint: false, totalSets: 2, lastA: '72 kg x 8', targetReps: 10 },
+    { id: 'a_hamstrings', name: '2. Uginanie nóg (Dwugłowy)', isJoint: false, totalSets: 2, lastA: '27 kg', targetReps: 12 },
+    { id: 'a_abductor', name: '3. Abduktor (Pośladki)', isJoint: false, totalSets: 2, lastA: '45 kg x 12', targetReps: 12 },
+    { id: 'a_calves', name: '4. Łydki', isJoint: false, totalSets: 2, lastA: '20 kg', targetReps: 15 }
   ]
 };

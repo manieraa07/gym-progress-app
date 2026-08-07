@@ -1,54 +1,59 @@
 @import "https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css";
 
 :root {
-  --bg-main: #0b0f19;
-  --card-bg: rgba(18, 26, 43, 0.75);
-  --accent-green: #10b981;
-  --accent-glow: rgba(16, 185, 129, 0.25);
+  --bg-dark: #080b11;
+  --card-bg: rgba(18, 24, 38, 0.7);
+  --accent-emerald: #10b981;
 }
 
 body {
-  background-color: var(--bg-main);
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 50%);
-  background-attachment: fixed;
+  background-color: var(--bg-dark);
+  background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08), transparent 70%);
   color: #f8fafc;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Glassmorphism Cards */
-.glass-card {
+/* Glassmorphism */
+.glass-panel {
   background: var(--card-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Modern Input Fields */
-.input-field {
-  background: rgba(10, 15, 29, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  font-weight: 700;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+/* Slide & Fade Animations */
+.card-enter {
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.input-field:focus {
-  border-color: #10b981;
-  box-shadow: 0 0 12px var(--accent-glow);
-  outline: none;
-  background: rgba(16, 23, 42, 0.95);
+.card-exit {
+  animation: slideOutLeft 0.25s cubic-bezier(0.7, 0, 0.84, 0) forwards;
 }
 
-.input-field::placeholder {
-  color: #475569;
-  font-weight: 400;
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(40px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
-/* Custom Scrollbar & Animations */
-button:active {
-  transform: scale(0.96);
+@keyframes slideOutLeft {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(-40px) scale(0.96); }
+}
+
+/* Pulse animation for coach feedback */
+.coach-pop {
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
 }

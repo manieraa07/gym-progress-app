@@ -7,8 +7,8 @@ let currentSetNumber = 1;
 let selectedRepsM = null;
 let selectedRepsA = null;
 
-// Słownik zapamiętujący ciężar wpisany w 1. serii aktualnego treningu
-let currentSessionWeights = {};
+// Zapamiętuje dokładnie to, co wpisaliśmy w 1. serii tego samego treningu
+let currentSessionData = {}; 
 
 let historyData = {}; 
 let currentWorkoutLogs = { date: new Date().toISOString(), entries: {} };
@@ -27,7 +27,7 @@ async function loadHistoryWithTimeout() {
         }
       }
     } catch (e) {
-      console.warn("Błąd podczas pobierania z Firebase:", e);
+      console.warn("Błąd Firebase:", e);
     }
     return null;
   })();
@@ -42,7 +42,7 @@ window.startSession = async function(mode) {
   activeMode = mode;
   currentExIndex = 0;
   currentSetNumber = 1;
-  currentSessionWeights = {};
+  currentSessionData = {};
   
   document.getElementById('mode-selection').classList.add('hidden');
   document.getElementById('loading-screen').classList.remove('hidden');
@@ -56,6 +56,13 @@ window.startSession = async function(mode) {
 
 function getLastRecord(exId, person) {
   const key = `${exId}_${person}`;
+  
+  // Jeśli jesteśmy w 2. serii, pokaż wynik z 1. serii DZISIEJSZEGO treningu
+  if (currentSetNumber === 2 && currentSessionData[key]) {
+    return `${currentSessionData[key].weight} kg x ${currentSessionData[key].reps} (Seria 1)`;
+  }
+  
+  // W przeciwnym razie pokaż wynik z Firebase / notatek
   if (historyData[key]) {
     return `${historyData[key].weight} kg x ${historyData[key].reps}`;
   }
@@ -64,11 +71,9 @@ function getLastRecord(exId, person) {
 
 function getDefaultWeight(exId, person) {
   const key = `${exId}_${person}`;
-  // 1. Jeśli wpisano już ciężar w 1. serii tego treningu, użyj go dla 2. serii
-  if (currentSessionWeights[key] !== undefined) {
-    return currentSessionWeights[key];
+  if (currentSessionData[key]) {
+    return currentSessionData[key].weight;
   }
-  // 2. Jeśli nie, pobierz ostatni ciężar z Firebase
   return historyData[key]?.weight || '';
 }
 
@@ -177,11 +182,14 @@ window.submitSet = async function() {
       return;
     }
     
-    // Zapisujemy wpisany ciężar do bieżącej sesji, by ustawić go domyślnie w 2. serii
-    currentSessionWeights[`${ex.id}_martin`] = wM;
+    const keyM = `${ex.id}_martin`;
+    const lastRepsM = historyData[keyM]?.reps || null;
 
-    currentWorkoutLogs.entries[`${ex.id}_martin`] = { weight: wM, reps: selectedRepsM };
-    const msg = getSuggestionMessage('Martin', selectedRepsM, currentSetNumber, ex.totalSets, ex.id);
+    // Zapamiętujemy wpis dla 2. serii
+    currentSessionData[keyM] = { weight: wM, reps: selectedRepsM };
+    currentWorkoutLogs.entries[keyM] = { weight: wM, reps: selectedRepsM };
+
+    const msg = getSuggestionMessage('Martin', selectedRepsM, currentSetNumber, ex.totalSets, ex.id, lastRepsM);
     if (msg) popupMessages.push(msg);
   }
 
@@ -192,10 +200,13 @@ window.submitSet = async function() {
       return;
     }
 
-    currentSessionWeights[`${ex.id}_ana`] = wA;
+    const keyA = `${ex.id}_ana`;
+    const lastRepsA = historyData[keyA]?.reps || null;
 
-    currentWorkoutLogs.entries[`${ex.id}_ana`] = { weight: wA, reps: selectedRepsA };
-    const msg = getSuggestionMessage('Ana', selectedRepsA, currentSetNumber, ex.totalSets, ex.id);
+    currentSessionData[keyA] = { weight: wA, reps: selectedRepsA };
+    currentWorkoutLogs.entries[keyA] = { weight: wA, reps: selectedRepsA };
+
+    const msg = getSuggestionMessage('Ana', selectedRepsA, currentSetNumber, ex.totalSets, ex.id, lastRepsA);
     if (msg) popupMessages.push(msg);
   }
 
@@ -211,16 +222,23 @@ window.submitSet = async function() {
   }
 };
 
-function getSuggestionMessage(name, reps, setNum, totalSets, exId) {
+function getSuggestionMessage(name, reps, setNum, totalSets, exId, lastReps) {
   const isIncline = (exId === 'wyciskanie_skos');
-  // Progowanie dla sugestii zwiększenia ciężaru:
-  // Skos: powtórzenia >= 12 (12+)
-  // Inne ćwiczenia: powtórzenia > 10 (czyli 11 i 12+)
   const thresholdIncrease = isIncline ? (reps >= 12) : (reps > 10);
 
   if (setNum === 1 && totalSets > 1) {
-    if (reps < 6) return `⚠️ <strong>${name}</strong>: Mniej niż 6 powtórzeń. <strong>Zmniejsz ciężar na 2. serię!</strong>`;
-    if (thresholdIncrease) return `🚀 <strong>${name}</strong>: Dobry wynik (${reps} powt.)! <strong>Dołóż ciężaru na 2. serię!</strong>`;
+    // 1. Spadek powtórzeń w porównaniu do poprzedniego treningu
+    if (lastReps && reps < lastReps && reps >= 6) {
+      return `⏱️ <strong>${name}</strong>: Wyszło mniej powtórzeń niż ostatnio (${reps} vs ${lastReps}). <strong>Zrób dłuższą przerwę przed 2. serią</strong> lub rozważ lekki spadek ciężaru.`;
+    }
+    // 2. Mniej niż 6 powtórzeń
+    if (reps < 6) {
+      return `⚠️ <strong>${name}</strong>: Mniej niż 6 powtórzeń. <strong>Zmniejsz ciężar na 2. serię!</strong>`;
+    }
+    // 3. Wzrost / progres
+    if (thresholdIncrease) {
+      return `🚀 <strong>${name}</strong>: Dobry wynik (${reps} powt.)! <strong>Dołóż ciężaru na 2. serię!</strong>`;
+    }
   } else {
     if (reps < 6) return `💡 <strong>${name}</strong>: Ciężka seria (poniżej 6 powt). Na następnym treningu zacznij od mniejszego ciężaru.`;
     if (thresholdIncrease) return `🔥 <strong>${name}</strong>: Świetny wynik! Od NASTĘPNEGO treningu zwiększasz ciężar bazowy.`;

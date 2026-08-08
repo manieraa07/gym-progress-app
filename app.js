@@ -4,6 +4,7 @@ import { db, collection, addDoc, getDocs, query, orderBy, limit } from './fireba
 let activeMode = null;
 let currentExIndex = 0;
 let currentSetNumber = 1;
+
 let selectedRepsM = null;
 let selectedRepsA = null;
 
@@ -47,7 +48,7 @@ window.startSession = async function(mode) {
   document.getElementById('exercise-card-view').classList.remove('hidden');
   
   setupSwipeListeners();
-  showExercisePreview();
+  renderSingleSetCard(); // Od razu wchodzimy do karty roboczej, bez zbędnych blokad!
 };
 
 function setupSwipeListeners() {
@@ -67,17 +68,69 @@ function handleSwipe() {
   const diffX = touchStartX - touchEndX;
   
   // SWIPE W LEWO (👈) -> Idź dalej
-  if (diffX > 60) {
-    const submitBtn = document.querySelector('.btn-submit');
-    if (submitBtn) submitBtn.click();
+  if (diffX > 50) {
+    window.goNext();
   } 
   // SWIPE W PRAWO (👉) -> Cofnij
-  else if (diffX < -60) {
+  else if (diffX < -50) {
     window.goBack();
   }
 }
 
+// ZAPIS DANYCH W TLE (Bez blokowania użytkownika)
+function saveCurrentStateSilently() {
+  const list = workoutPlan[activeMode];
+  const ex = list[currentExIndex];
+  if (!ex) return;
+
+  if (activeMode === 'martin_session') {
+    const wM = document.getElementById('martin_weight')?.value || getDefaultWeight(ex.id, 'martin');
+    const keyM = `${ex.id}_martin`;
+    const repsM = selectedRepsM || historyData[keyM]?.reps || 8; // Jeśli nic nie klikał, bierze z historii
+
+    currentSessionData[keyM] = { weight: wM, reps: repsM };
+    currentWorkoutLogs.entries[keyM] = { weight: wM, reps: repsM };
+  }
+
+  if (ex.isJoint || activeMode === 'ana_solo') {
+    const wA = document.getElementById('ana_weight')?.value || getDefaultWeight(ex.id, 'ana');
+    const keyA = `${ex.id}_ana`;
+    const repsA = selectedRepsA || historyData[keyA]?.reps || 8;
+
+    currentSessionData[keyA] = { weight: wA, reps: repsA };
+    currentWorkoutLogs.entries[keyA] = { weight: wA, reps: repsA };
+  }
+
+  // Zapis do bazy w tle
+  addDoc(collection(db, "workouts"), {
+    ...currentWorkoutLogs,
+    date: new Date().toISOString()
+  }).catch(e => console.error("Firebase err: ", e));
+}
+
+window.goNext = function() {
+  saveCurrentStateSilently();
+  
+  const list = workoutPlan[activeMode];
+  const ex = list[currentExIndex];
+
+  animateAndProceed(() => {
+    if (currentSetNumber < ex.totalSets) {
+      currentSetNumber++;
+      renderSingleSetCard();
+    } else if (currentExIndex < list.length - 1) {
+      currentSetNumber = 1;
+      currentExIndex++;
+      renderSingleSetCard();
+    } else {
+      renderCompletionScreen();
+    }
+  }, 'left');
+};
+
 window.goBack = function() {
+  saveCurrentStateSilently();
+  
   const list = workoutPlan[activeMode];
   
   if (currentSetNumber > 1) {
@@ -91,97 +144,6 @@ window.goBack = function() {
   }
 };
 
-function showExercisePreview() {
-  const list = workoutPlan[activeMode];
-  const ex = list[currentExIndex];
-  const container = document.getElementById('card-container');
-
-  if (!ex) {
-    renderCompletionScreen();
-    return;
-  }
-
-  const imgHtml = ex.image ? `<img src="${ex.image}" alt="${ex.name}" class="preview-img">` : '<span class="preview-icon">🏋️‍♂️</span>';
-
-  container.innerHTML = `
-    <div class="card preview-card">
-      ${imgHtml}
-      <span class="preview-badge">NASTĘPNE ĆWICZENIE</span>
-      <h2>${ex.name}</h2>
-    </div>
-  `;
-
-  setTimeout(() => {
-    if (currentExIndex === 0 && currentSetNumber === 1 && activeMode === 'martin_session') {
-      renderWarmupCard(ex);
-    } else if (ex.id === 'wyciskanie_skos' && currentSetNumber === 1 && activeMode === 'martin_session') {
-      renderInclineWarmupCard(ex);
-    } else {
-      renderSingleSetCard();
-    }
-  }, 1400);
-}
-
-function renderWarmupCard(ex) {
-  const container = document.getElementById('card-container');
-  const lastMWeight = parseFloat(historyData['latzug_martin']?.weight || 54);
-  const lastAWeight = parseFloat(historyData['latzug_ana']?.weight || 50);
-
-  container.innerHTML = `
-    <div class="card">
-      <div style="text-align: center; margin-bottom: 12px;">
-        <span class="preview-badge">ROZGRZEWKA PLECÓW 🩸</span>
-        <h2 style="margin: 4px 0;">Rozgrzewka (Latzug)</h2>
-      </div>
-
-      <div class="person-box martin">
-        <div class="person-title">MARTIN (Cel: ~${lastMWeight} kg)</div>
-        <div style="font-size: 13px; margin-top: 4px;">
-          • <strong>Seria 1 (50%):</strong> ~${Math.round(lastMWeight * 0.5)} kg × 10-12<br>
-          • <strong>Seria 2 (75%):</strong> ~${Math.round(lastMWeight * 0.75)} kg × 4-5
-        </div>
-      </div>
-
-      <div class="person-box ana">
-        <div class="person-title">ANA (Cel: ~${lastAWeight} kg)</div>
-        <div style="font-size: 13px; margin-top: 4px;">
-          • <strong>Seria 1 (50%):</strong> ~${Math.round(lastAWeight * 0.5)} kg × 10-12<br>
-          • <strong>Seria 2 (75%):</strong> ~${Math.round(lastAWeight * 0.75)} kg × 4-5
-        </div>
-      </div>
-
-      <button onclick="window.finishWarmup()" class="btn-submit">Rozgrzani! Zaczynamy →</button>
-      <div class="swipe-hint">👈 Przesuń w lewo, aby przejść dalej</div>
-    </div>
-  `;
-}
-
-function renderInclineWarmupCard(ex) {
-  const container = document.getElementById('card-container');
-  container.innerHTML = `
-    <div class="card">
-      <div style="text-align: center; margin-bottom: 12px;">
-        <span class="preview-badge">ROZGRZEWKA 🎯</span>
-        <h2 style="margin: 4px 0;">Wyciskanie Skos (Martin)</h2>
-      </div>
-
-      <div class="person-box martin">
-        <div class="person-title">MARTIN</div>
-        <div style="font-size: 13px; margin-top: 4px;">
-          ⚠️ Pamiętaj o <strong>1-2 lekkich seriach rozgrzewkowych</strong> przed serią roboczą!
-        </div>
-      </div>
-
-      <button onclick="window.finishWarmup()" class="btn-submit">Rozgrzany! Zaczynamy →</button>
-      <div class="swipe-hint">👈 Przesuń w lewo | 👉 Przesuń w prawo (cofnij)</div>
-    </div>
-  `;
-}
-
-window.finishWarmup = function() {
-  animateAndProceed(() => renderSingleSetCard(), 'left');
-};
-
 function renderSingleSetCard() {
   const list = workoutPlan[activeMode];
   const ex = list[currentExIndex];
@@ -192,16 +154,21 @@ function renderSingleSetCard() {
     return;
   }
 
+  // Pasek postępu
   const progressPercent = ((currentExIndex) / list.length) * 100;
   document.getElementById('progress-fill').style.width = `${progressPercent}%`;
   document.getElementById('progress-text').innerText = `Ćwiczenie ${currentExIndex + 1} z ${list.length}`;
   document.getElementById('set-badge').innerText = `SERIA ${currentSetNumber} z ${ex.totalSets}`;
 
-  selectedRepsM = null;
-  selectedRepsA = null;
+  // Reset wyboru dla nowej karty
+  selectedRepsM = currentSessionData[`${ex.id}_martin`]?.reps || null;
+  selectedRepsA = currentSessionData[`${ex.id}_ana`]?.reps || null;
+
+  const imgHtml = ex.image ? `<img src="${ex.image}" alt="${ex.name}" class="preview-img">` : '';
 
   let html = `
     <div class="card">
+      ${imgHtml}
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h2 style="margin: 0; font-size: 18px;">${ex.name}</h2>
         ${(currentExIndex > 0 || currentSetNumber > 1) ? `<button onclick="window.goBack()" class="btn-back">↩ Cofnij</button>` : ''}
@@ -221,14 +188,18 @@ function renderSingleSetCard() {
   }
 
   html += `
-      <button onclick="window.submitSet()" class="btn-submit">
-        Zatwierdź Serię ${currentSetNumber} →
+      <button onclick="window.goNext()" class="btn-submit">
+        Dalej (Seria ${currentSetNumber}) →
       </button>
-      <div class="swipe-hint">👈 Dalej | 👉 Cofnij</div>
+      <div class="swipe-hint">👈 Przesuń w lewo | 👉 Przesuń w prawo</div>
     </div>
   `;
 
   container.innerHTML = html;
+
+  // Odznacz ewentualnie zapamiętane przyciski
+  if (selectedRepsM) highlightRep('martin', selectedRepsM);
+  if (selectedRepsA) highlightRep('ana', selectedRepsA);
 }
 
 function renderPersonSection(personCode, personName, lastText, defaultWeight) {
@@ -236,7 +207,7 @@ function renderPersonSection(personCode, personName, lastText, defaultWeight) {
   for (let i = 1; i <= 12; i++) {
     const val = i === 12 ? '12+' : i;
     const numVal = i === 12 ? 12 : i;
-    repsButtons += `<button type="button" onclick="window.selectRep('${personCode}', ${numVal}, this)" class="rep-btn rep-btn-${personCode}">${val}</button>`;
+    repsButtons += `<button type="button" onclick="window.selectRep('${personCode}', ${numVal}, this)" class="rep-btn rep-btn-${personCode}" id="btn-${personCode}-${numVal}">${val}</button>`;
   }
 
   return `
@@ -272,112 +243,9 @@ window.selectRep = function(person, val, btn) {
   btn.classList.add(person === 'martin' ? 'selected-martin' : 'selected-ana');
 };
 
-window.submitSet = async function() {
-  const list = workoutPlan[activeMode];
-  const ex = list[currentExIndex];
-  let popupMessages = [];
-
-  if (activeMode === 'martin_session') {
-    const wM = document.getElementById('martin_weight')?.value || 0;
-    if (selectedRepsM === null) {
-      alert("Zaznacz powtórzenia dla Martina!");
-      return;
-    }
-    
-    const keyM = `${ex.id}_martin`;
-    const lastRepsM = historyData[keyM]?.reps || null;
-
-    currentSessionData[keyM] = { weight: wM, reps: selectedRepsM };
-    currentWorkoutLogs.entries[keyM] = { weight: wM, reps: selectedRepsM };
-
-    const msg = getSuggestionMessage('Martin', selectedRepsM, currentSetNumber, ex.totalSets, ex.id, lastRepsM);
-    if (msg) popupMessages.push(msg);
-  }
-
-  if (ex.isJoint || activeMode === 'ana_solo') {
-    const wA = document.getElementById('ana_weight')?.value || 0;
-    if (selectedRepsA === null) {
-      alert("Zaznacz powtórzenia dla Ani!");
-      return;
-    }
-
-    const keyA = `${ex.id}_ana`;
-    const lastRepsA = historyData[keyA]?.reps || null;
-
-    currentSessionData[keyA] = { weight: wA, reps: selectedRepsA };
-    currentWorkoutLogs.entries[keyA] = { weight: wA, reps: selectedRepsA };
-
-    const msg = getSuggestionMessage('Ana', selectedRepsA, currentSetNumber, ex.totalSets, ex.id, lastRepsA);
-    if (msg) popupMessages.push(msg);
-  }
-
-  addDoc(collection(db, "workouts"), {
-    ...currentWorkoutLogs,
-    date: new Date().toISOString()
-  }).catch(e => console.error("Firebase err: ", e));
-
-  if (popupMessages.length > 0) {
-    showPopupCard(popupMessages, () => advanceFlow(ex));
-  } else {
-    advanceFlow(ex);
-  }
-};
-
-function getSuggestionMessage(name, reps, setNum, totalSets, exId, lastReps) {
-  const isIncline = (exId === 'wyciskanie_skos');
-  const thresholdIncrease = isIncline ? (reps >= 12) : (reps > 10);
-
-  if (setNum === 1 && totalSets > 1) {
-    if (lastReps && reps < lastReps && reps >= 6) {
-      return `⏱️ <strong>${name}</strong>: Mniej powtórzeń niż ostatnio (${reps} vs ${lastReps}). <strong>Zrób dłuższą przerwę przed 2. serią</strong>.`;
-    }
-    if (reps < 6) {
-      return `⚠️ <strong>${name}</strong>: Mniej niż 6 powtórzeń. <strong>Zmniejsz ciężar na 2. serię!</strong>`;
-    }
-    if (thresholdIncrease) {
-      return `🚀 <strong>${name}</strong>: Kapitalny wynik (${reps} powt.)! <strong>Dołóż ciężaru na 2. serię!</strong>`;
-    }
-    if (lastReps && reps > lastReps) {
-      const diff = reps - lastReps;
-      return `👏 <strong>${name}</strong>: Brawo! Progres o <strong>+${diff} powt.</strong> w porównaniu do poprzedniego treningu!`;
-    }
-  } else {
-    if (reps < 6) return `💡 <strong>${name}</strong>: Ciężka seria (< 6 powt). Na następnym treningu zacznij od mniejszego ciężaru.`;
-    if (thresholdIncrease) return `🔥 <strong>${name}</strong>: Świetny wynik! Od NASTĘPNEGO treningu zwiększasz ciężar.`;
-    if (lastReps && reps > lastReps) {
-      const diff = reps - lastReps;
-      return `👏 <strong>${name}</strong>: Piękny finisz! Progres o <strong>+${diff} powt.</strong> względem ostatniego treningu!`;
-    }
-  }
-  return null;
-}
-
-function showPopupCard(messages, onConfirm) {
-  const container = document.getElementById('card-container');
-  container.innerHTML = `
-    <div class="card" style="border: 2px solid var(--accent-green); text-align: center;">
-      <span style="font-size: 36px; display: block; margin-bottom: 4px;">🎯</span>
-      <h3 style="margin: 0; color: var(--accent-green); font-size: 16px;">Sugestia Trenera</h3>
-      <div style="margin: 12px 0; font-size: 13px; line-height: 1.4; text-align: left; background: #090d16; padding: 10px; border-radius: 8px;">
-        ${messages.join('<br><br>')}
-      </div>
-      <button id="popup-confirm-btn" class="btn-submit">Dalej →</button>
-    </div>
-  `;
-  document.getElementById('popup-confirm-btn').onclick = onConfirm;
-}
-
-function advanceFlow(ex) {
-  animateAndProceed(() => {
-    if (currentSetNumber < ex.totalSets) {
-      currentSetNumber++;
-      renderSingleSetCard();
-    } else {
-      currentSetNumber = 1;
-      currentExIndex++;
-      showExercisePreview();
-    }
-  }, 'left');
+function highlightRep(person, val) {
+  const btn = document.getElementById(`btn-${person}-${val}`);
+  if (btn) btn.classList.add(person === 'martin' ? 'selected-martin' : 'selected-ana');
 }
 
 function animateAndProceed(callback, direction = 'left') {
@@ -388,7 +256,7 @@ function animateAndProceed(callback, direction = 'left') {
   setTimeout(() => {
     callback();
     container.classList.remove(className);
-  }, 180);
+  }, 150);
 }
 
 function getLastRecord(exId, person) {
@@ -415,7 +283,7 @@ function renderCompletionScreen() {
     <div class="card" style="text-align: center; padding: 30px 16px;">
       <span style="font-size: 50px; display: block; margin-bottom: 8px;">🎉</span>
       <h2>Trening Zakończony!</h2>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Świetna robota! Wyniki zapisane w bazie.</p>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Wszystkie wyniki zostały automatycznie zapisane.</p>
       <button onclick="location.reload()" class="btn-submit">Powrót do Menu</button>
     </div>
   `;

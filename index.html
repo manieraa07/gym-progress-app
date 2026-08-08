@@ -5,36 +5,70 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#090d16">
+  <meta name="theme-color" content="#07090e">
   <title>Gym Engine Pro</title>
   <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
 
   <div class="app-shell">
     
-    <header class="top-nav">
+    <header id="top-nav" class="top-nav hidden">
       <button onclick="location.reload()" class="nav-btn-close">✕</button>
       <div class="nav-title">
         <span class="nav-subtitle">TRENING W TOKU</span>
-        <h1 id="nav-workout-name">Góra Ciała</h1>
+        <h1 id="nav-workout-name">Sesja Treningowa</h1>
       </div>
       <div id="session-timer" class="timer-chip">00:00</div>
     </header>
 
-    <main class="workout-feed" id="workout-feed">
+    <div id="mode-selection" class="main-menu">
+      <div class="user-greeting">
+        <span class="greeting-subtitle">GYM ENGINE PRO 3.0</span>
+        <h1>Co dzisiaj trenujemy? 🔥</h1>
+      </div>
+      
+      <div class="cards-grid">
+        <div onclick="window.startSession('martin_session')" class="workout-card martin-card">
+          <div class="card-tag">DUO SESSION</div>
+          <h2>Martin & Ana</h2>
+          <p>Góra ciała + dedykowane ćwiczenia Martina</p>
+          <div class="card-footer">
+            <span>9 ćwiczeń</span>
+            <span class="arrow-icon">Rozpocznij →</span>
+          </div>
+        </div>
+        
+        <div onclick="window.startSession('ana_solo')" class="workout-card ana-card">
+          <div class="card-tag">SOLO SESSION</div>
+          <h2>Ana Solo</h2>
+          <p>Dół ciała / Nogi i Pośladki</p>
+          <div class="card-footer">
+            <span>4 ćwiczenia</span>
+            <span class="arrow-icon">Rozpocznij →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="loading-screen" class="hidden loading-view">
+      <div class="pulse-ring"></div>
+      <p>Pobieranie historii i przygotowanie dziennika...</p>
+    </div>
+
+    <main id="workout-feed" class="workout-feed hidden">
       </main>
 
-    <footer class="bottom-dock">
+    <footer id="bottom-dock" class="bottom-dock hidden">
       <div class="dock-info">
         <div class="dock-progress-track">
           <div id="dock-progress-bar" class="dock-progress-fill"></div>
         </div>
-        <span id="dock-status-text">Ukończono 0 z 9 ćwiczeń</span>
+        <span id="dock-status-text">Oznacz wykonane serie</span>
       </div>
       <button onclick="window.finishWorkout()" class="btn-finish-workout">
-        Zakończ i Zapisz Trening
+        ✓ Zakończ i Zapisz Trening
       </button>
     </footer>
 

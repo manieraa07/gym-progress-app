@@ -1,256 +1,36 @@
-:root {
-  --bg-color: #0b0f19;
-  --card-bg: rgba(23, 31, 48, 0.75);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --text-main: #f3f4f6;
-  --text-muted: #9ca3af;
-  
-  --martin-color: #38bdf8;
-  --martin-bg: rgba(56, 189, 248, 0.12);
-  
-  --ana-color: #f472b6;
-  --ana-bg: rgba(244, 114, 182, 0.12);
-  
-  --accent-green: #10b981;
-  --accent-green-hover: #059669;
+/* BLOKADA ZAZNACZANIA TEKSTU PODCZAS SWIPE */
+body, .card, button, input {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y; /* Pozwala na przewijanie góra-dół, rezerwując lewo-prawo dla aplikacji */
 }
 
-* {
-  box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  -webkit-tap-highlight-color: transparent;
+/* KONTENER DLA ANIMACJI SWIPE */
+.swipe-wrapper {
+  position: relative;
+  width: 100%;
+  transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
-body {
-  background-color: var(--bg-color);
-  background-image: radial-gradient(circle at top, #1e293b 0%, #0b0f19 80%);
-  color: var(--text-main);
-  margin: 0;
-  padding: 16px;
-  min-height: 100vh;
+.swipe-left {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.swipe-right {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* WSKAZÓWKA GESTU DOŁEM KARTY */
+.swipe-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 14px;
   display: flex;
+  align-items: center;
   justify-content: center;
-  align-items: center;
-}
-
-.app-container {
-  width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
-}
-
-/* KARTY & GLASSMORPHISM */
-.card {
-  background: var(--card-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--card-border);
-  border-radius: 24px;
-  padding: 20px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-  animation: fadeIn 0.3s ease-out;
-}
-
-.main-menu-card {
-  text-align: center;
-  padding: 32px 20px;
-}
-
-.logo-badge {
-  display: inline-block;
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--accent-green);
-  font-size: 11px;
-  font-weight: 800;
-  padding: 6px 12px;
-  border-radius: 20px;
-  letter-spacing: 1px;
-  margin-bottom: 12px;
-}
-
-h1 { font-size: 22px; margin: 0 0 6px 0; }
-.subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 24px 0; }
-
-/* PRZYCISKI */
-.button-group { display: flex; flex-direction: column; gap: 12px; }
-
-.btn {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-}
-
-.btn-martin {
-  background: var(--martin-bg);
-  border-color: rgba(56, 189, 248, 0.3);
-  color: var(--text-main);
-}
-.btn-martin strong { color: var(--martin-color); }
-
-.btn-ana {
-  background: var(--ana-bg);
-  border-color: rgba(244, 114, 182, 0.3);
-  color: var(--text-main);
-}
-.btn-ana strong { color: var(--ana-color); }
-
-.btn-icon { font-size: 24px; }
-.btn-text strong { display: block; font-size: 16px; }
-.btn-text small { color: var(--text-muted); font-size: 12px; }
-
-.btn:active { transform: scale(0.98); }
-
-/* PASEK POSTĘPU */
-.progress-bar-container { margin-bottom: 16px; padding: 0 4px; }
-.progress-info {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--text-muted);
-}
-.badge-set {
-  background: #1e293b;
-  color: var(--accent-green);
-  padding: 3px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.progress-track {
-  height: 6px;
-  background: #1e293b;
-  border-radius: 10px;
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #10b981, #38bdf8);
-  border-radius: 10px;
-  transition: width 0.3s ease;
-}
-
-/* SEKCJE OSOBOWE W KARCIE */
-.person-box {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 14px;
-  margin-bottom: 12px;
-}
-.person-box.martin { border-left: 4px solid var(--martin-color); }
-.person-box.ana { border-left: 4px solid var(--ana-color); }
-
-.person-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-.person-title { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
-.martin .person-title { color: var(--martin-color); }
-.ana .person-title { color: var(--ana-color); }
-
-.history-badge {
-  font-size: 11px;
-  background: #1e293b;
-  color: var(--text-muted);
-  padding: 3px 8px;
-  border-radius: 12px;
-}
-
-.input-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; display: block; }
-
-.weight-input {
-  width: 100%;
-  padding: 12px;
-  background: #090d16;
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  color: #fff;
-  font-size: 18px;
-  font-weight: 700;
-  outline: none;
-  margin-bottom: 10px;
-}
-.weight-input:focus { border-color: var(--accent-green); }
-
-/* KAFTELKI POWTÓRZEŃ */
-.reps-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
   gap: 6px;
+  opacity: 0.7;
 }
-
-.rep-btn {
-  padding: 10px 0;
-  background: #090d16;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  color: var(--text-main);
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.rep-btn:active { transform: scale(0.92); }
-
-.rep-btn.selected-martin {
-  background: var(--martin-color);
-  color: #000;
-  border-color: var(--martin-color);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
-}
-
-.rep-btn.selected-ana {
-  background: var(--ana-color);
-  color: #000;
-  border-color: var(--ana-color);
-  box-shadow: 0 0 10px rgba(244, 114, 182, 0.4);
-}
-
-/* PRZYCISK ZATWIERDŹ */
-.btn-submit {
-  width: 100%;
-  padding: 16px;
-  background: var(--accent-green);
-  color: #000;
-  font-size: 16px;
-  font-weight: 800;
-  border: none;
-  border-radius: 14px;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
-  transition: all 0.2s ease;
-  margin-top: 8px;
-}
-.btn-submit:active { transform: scale(0.98); background: var(--accent-green-hover); }
-
-/* ANIMOWANY PODGLĄD ĆWICZENIA (PREVIEW) */
-.preview-card {
-  text-align: center;
-  padding: 30px 20px;
-  animation: zoomIn 0.3s ease-out;
-}
-.preview-icon { font-size: 60px; margin-bottom: 12px; display: block; }
-
-/* SPINNER & UTILS */
-.hidden { display: none !important; }
-.loading-card { text-align: center; padding: 40px; color: var(--accent-green); }
-.spinner {
-  width: 32px; height: 32px; border: 3px solid rgba(16,185,129,0.2);
-  border-top-color: var(--accent-green); border-radius: 50%;
-  animation: spin 0.8s linear infinite; margin: 0 auto 16px auto;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }

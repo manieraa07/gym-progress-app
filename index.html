@@ -6,57 +6,70 @@
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0b0f19">
-  <title>GymApp Pro</title>
+  <meta name="theme-color" content="#080a11">
+  <title>Gym Engine Pro</title>
   
   <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <div class="app-container">
+  <div class="app-viewport">
     
-    <div id="mode-selection" class="card main-menu-card">
-      <div class="logo-badge">GYM ENGINE</div>
-      <h1>Kto dzisiaj trenuje?</h1>
-      <p class="subtitle">Wybierz odpowiednią ścieżkę treningową</p>
+    <header id="app-header" class="app-header hidden">
+      <div class="header-left">
+        <button onclick="window.confirmExit()" class="btn-icon-only">✕</button>
+        <span id="workout-timer" class="timer-badge">00:00</span>
+      </div>
+      <div class="header-center">
+        <span id="header-ex-name">Latzug</span>
+      </div>
+      <div class="header-right">
+        <span id="header-set-counter" class="set-counter">S1/2</span>
+      </div>
+    </header>
+
+    <div id="mode-selection" class="main-menu">
+      <div class="user-greeting">
+        <span class="greeting-subtitle">WYBIERZ SESJĘ</span>
+        <h1>Co dzisiaj robimy? 🔥</h1>
+      </div>
       
-      <div class="button-group">
-        <button onclick="window.startSession('martin_session')" class="btn btn-martin">
-          <span class="btn-icon">⚡</span>
-          <div class="btn-text">
-            <strong>Martin & Ana</strong>
-            <small>Wspólna Góra + Dedykowane Martina</small>
+      <div class="cards-grid">
+        <div onclick="window.startSession('martin_session')" class="workout-card martin-card">
+          <div class="card-tag">DUO SESSION</div>
+          <h2>Martin & Ana</h2>
+          <p>Góra ciała + dedykowane ćwiczenia Martina</p>
+          <div class="card-footer">
+            <span>9 ćwiczeń</span>
+            <span class="arrow-icon">→</span>
           </div>
-        </button>
+        </div>
         
-        <button onclick="window.startSession('ana_solo')" class="btn btn-ana">
-          <span class="btn-icon">🔥</span>
-          <div class="btn-text">
-            <strong>Ana Solo</strong>
-            <small>Dół / Nogi i Pośladki</small>
+        <div onclick="window.startSession('ana_solo')" class="workout-card ana-card">
+          <div class="card-tag">SOLO SESSION</div>
+          <h2>Ana Solo</h2>
+          <p>Dół ciała / Pośladki i Łydki</p>
+          <div class="card-footer">
+            <span>4 ćwiczenia</span>
+            <span class="arrow-icon">→</span>
           </div>
-        </button>
-      </div>
-    </div>
-
-    <div id="loading-screen" class="hidden loading-card">
-      <div class="spinner"></div>
-      <p>Pobieranie ostatnich wyników...</p>
-    </div>
-
-    <div id="exercise-card-view" class="hidden">
-      <div class="progress-bar-container">
-        <div class="progress-info">
-          <span id="progress-text">Ćwiczenie 1 z 9</span>
-          <span id="set-badge" class="badge-set">SERIA 1 z 2</span>
-        </div>
-        <div class="progress-track">
-          <div id="progress-fill" class="progress-fill"></div>
         </div>
       </div>
-
-      <div id="card-container" class="swipe-wrapper"></div>
     </div>
+
+    <div id="loading-screen" class="hidden loading-view">
+      <div class="pulse-ring"></div>
+      <p>Inicjalizacja modułu...</p>
+    </div>
+
+    <main id="exercise-card-view" class="hidden content-area">
+      <div class="progress-container">
+        <div id="progress-fill" class="progress-bar"></div>
+      </div>
+
+      <div id="card-container" class="swipe-container"></div>
+    </main>
 
   </div>
 

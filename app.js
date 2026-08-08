@@ -1,37 +1,453 @@
-import {EX,P,TOGETHER1,SPLIT,TOGETHER2,NUTRITION,NAMES} from './data.js';
+/* app.js — Duo Lane
+   Zasada: pisze się jak w notatniku. Nic nie trzeba zatwierdzać.
+   Zapis: localStorage natychmiast + Firestore w tle (debounce). */
 
-const KEY='duolane.sessions.v1', LIVE='duolane.live.v1';
-const state={route:'home',person:'martin',session:null,rest:null,shakeRange:[900,1000],body:[]};
-const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
-const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}, save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
-const sessions=()=>load(KEY,[]), vol=s=>+s.kg*+s.reps||0, fmt=v=>v>=1000?(v/1000).toFixed(1)+' t':Math.round(v)+' kg', date=d=>new Date(d).toLocaleDateString('pl-PL',{day:'numeric',month:'short'});
-const prev=(id,p,n)=>{for(const x of [...sessions()].reverse()){const r=x.sets?.find(s=>s.ex===id&&s.person===p&&s.set===n);if(r)return r}return null};
-const best=(id,p)=>{let b; sessions().forEach(x=>x.sets?.forEach(s=>{if(s.ex===id&&s.person===p&&(!b||+s.kg*(1+s.reps/30)>+b.kg*(1+b.reps/30)))b=s}));return b};
-function toast(t){const e=document.createElement('div');e.className='toast';e.textContent=t;document.body.append(e);setTimeout(()=>e.remove(),1800)}
-function nav(route){state.route=route;render()}
-function tabs(){return `<div class="tabs"><div class="tabs-in"><button class="tab" data-nav="home"><i>🏋️</i>TRENING</button><button class="tab" data-nav="stats"><i>📈</i>STATY</button><button class="tab" data-nav="martin"><i>⚡</i>MARTIN</button></div></div>`}
-function home(){const all=sessions(),live=load(LIVE,null);return `<main class="page"><div class="hero"><span class="eyebrow">Duo Lane</span><h1>Dwie ścieżki,<em>jeden dziennik.</em></h1></div><div class="kpis"><div class="kpi"><b>${all.length}</b><span>treningów</span></div><div class="kpi"><b>${all.length?all.reduce((a,x)=>a+x.sets.length,0):'—'}</b><span>serii</span></div><div class="kpi"><b>${all.length?date(all.at(-1).date):'—'}</b><span>ostatni</span></div></div>${live?`<button class="card live" data-action="resume"><span class="eyebrow">Sesja zapisana</span><h2>Wróć do treningu</h2><p>${live.log.length} zapisanych serii</p></button>`:''}<span class="eyebrow">Zacznij sesję</span><div style="height:10px"></div><button class="card duo" data-action="duo"><span class="eyebrow">Razem → osobno → razem</span><h2>Martin &amp; Ana</h2><p>Plecy razem, osobne ćwiczenia, triceps i biceps razem.</p><div class="meta"><span>HIT · 2 serie RIR 0–1</span><b>Start →</b></div></button><button class="card solo" data-action="solo"><span class="eyebrow">Solo</span><h2>Ana — dół</h2><p>Suwnica, dwugłowy, abduktor, łydki.</p><div class="meta"><span>4 ćwiczenia</span><b>Start →</b></div></button><div class="section-title"><h2>Historia</h2></div><div class="panel">${all.length?[...all].reverse().slice(0,5).map(x=>`<div class="lrow"><span class="dot" style="background:${x.solo?'var(--a)':'linear-gradient'}"></span><div><div>${x.solo?'Ana — dół':'Martin & Ana'}</div><div class="s">${date(x.date)} · ${x.sets.length} serii</div></div></div>`).join(''):'<div class="empty"><b>Historia jest pusta</b>Pierwszy trening zapisze się tutaj.</div>'}</div></main>${tabs()}`}
-function queue(s){const q=[],add=(ids,ps,phase)=>ids.forEach(id=>{for(let n=1;n<=EX[id].sets;n++)ps.forEach((p,i)=>q.push({ex:id,person:p,set:n,phase,rest:i===ps.length-1}))});if(s.solo){add(SPLIT.ana,['ana'],'solo');return q}add(TOGETHER1,['martin','ana'],'together');q.push({gate:'split'});if(!s.who)return q;add(SPLIT[s.who],[s.who],'split');q.push({gate:'back'});if(s.reunited===null)return q;add(TOGETHER2,s.reunited?['martin','ana']:[s.who],'together');return q}
-function newSession(solo){state.session={id:Date.now(),date:new Date().toISOString(),start:Date.now(),solo,who:solo?'ana':null,reunited:solo?false:null,i:0,log:[],draft:null,tip:null};save(LIVE,state.session);state.route='run';render()}
-function pips(q){return q.map((x,i)=>x.gate?'<span class="pip gap"></span>`':`<span class="pip ${i<state.session.i?'done':i===state.session.i?'now':''}"></span>`).join('')}
-function runner(){const s=state.session,q=queue(s),cur=q[s.i];if(!cur)return `<div class="run"><div class="stage"><h1>Plan wykonany.</h1><p>${s.log.length} serii zapisanych.</p><button class="btn" data-action="finish">Zapisz trening</button></div></div>`;if(cur.gate)return gate(cur.gate,q);const x=EX[cur.ex],p=P[cur.person],pr=prev(cur.ex,cur.person,cur.set),b=best(cur.ex,cur.person),tip=s.tip;return `<div class="run"><header class="run-top"><div class="run-top-in"><button class="ibtn" data-action="abort">×</button><div class="run-ttl"><span class="eyebrow">${cur.phase==='split'?'Osobno':'Razem'} · ${p.name}</span><h2>${x.n} · seria ${cur.set}/${x.sets}</h2></div><div class="clk">${Math.floor((Date.now()-s.start)/60000)}:${String(Math.floor((Date.now()-s.start)/1000)%60).padStart(2,'0')}</div></div><div class="pips">${pips(q)}</div></header><div class="run-body"><div class="stage"><span class="band ${p.k}">${p.name.toUpperCase()} · SERIA ${cur.set}</span><h1 class="exname">${x.n}</h1><div class="chips"><span class="chip">${x.sub}</span><span class="chip">CEL 6–${x.tech?12:10} · RIR 0–1</span></div><div class="dials"><dial-box class="dial ${p.k}" title="Ciężar" id="kg" value="${s.draft?.kg??''}" placeholder="${pr?.kg??0}" unit="KG"></dial-box><dial-box class="dial ${p.k}" title="Powtórzenia" id="reps" value="${s.draft?.reps??''}" placeholder="${pr?.reps??0}" unit="POWT."></dial-box></div><div class="refs">${pr?`<button data-use="prev"><span class="eyebrow">Ostatnio</span><b>${pr.kg} × ${pr.reps}</b></button>`:'<div><span class="eyebrow">Ostatnio</span><span>brak danych</span></div>'}${b?`<div><span class="eyebrow">Rekord</span><b>${b.kg} × ${b.reps}</b></div>`:''}</div>${tip?`<div class="coach ${tip.type}"><i>${tip.icon}</i><div><b>${tip.title}</b><span>${tip.text}</span></div></div>`:''}</div></div><footer class="run-foot"><div class="run-foot-in"><button class="skip" data-action="skip">POMIŃ</button><button class="btn ${p.k}" data-action="save">Zapisz serię ${p.name}a</button></div></footer></div>`}
-class DialBox extends HTMLElement{connectedCallback(){this.innerHTML=`<span class="eyebrow">${this.getAttribute('title')}</span><div class="face"><input id="f-${this.id}" inputmode="decimal" value="${this.getAttribute('value')}" placeholder="${this.getAttribute('placeholder')}"></div><div class="unit">${this.getAttribute('unit')}</div><div class="ruler"><i></i><b></b></div><div class="dialbtn"><button data-dial="${this.id}|-1">−</button><button data-dial="${this.id}|1">+</button></div>`}}
-customElements.define('dial-box',DialBox);
-function gate(kind,q){return `<div class="run"><header class="run-top"><div class="run-top-in"><button class="ibtn" data-action="abort">×</button><div class="run-ttl"><span class="eyebrow">Sesja w toku</span><h2>Martin &amp; Ana</h2></div></div><div class="pips">${pips(q)}</div></header><div class="run-body"><div class="stage"><span class="eyebrow">${kind==='split'?'Rozdzielacie się':'Blok osobny za Wami'}</span><h1 class="exname">${kind==='split'?'Kto trzyma ten telefon?':'Wracacie razem?'}</h1><p style="color:var(--dim)">${kind==='split'?'Ana odpala apkę na swoim telefonie i wybiera siebie.':'Zostały triceps, biceps i wznosy.'}</p><div class="forks">${kind==='split'?`<button class="fork m" data-who="martin"><b>Martin</b><span>skos · bary · rozpiętki</span></button><button class="fork a" data-who="ana"><b>Ana</b><span>4 ćwiczenia nóg</span></button>`:`<button class="fork m" data-reunite="1"><b>Razem</b><span>notuję oboje</span></button><button class="fork a" data-reunite="0"><b>Osobno</b><span>tylko ${P[state.session.who].name}</span></button>`}</div></div></div><footer class="run-foot"><div class="run-foot-in"><button class="btn ghost" data-action="finish">Zakończ trening</button></div></footer></div>`}
-function suggestion(cur,r,s){const x=EX[cur.ex],previous=s.log.find(v=>v.ex===cur.ex&&v.person===cur.person&&v.set===cur.set-1);if(previous&&previous.reps-r.reps>=3)return{type:'warn',icon:'🫁',title:'Spadek siły',text:'Weź 3 minuty przerwy zamiast dwóch.'};if(r.reps<6)return{type:'warn',icon:'⬇',title:'Za ciężko',text:cur.set<x.sets?'Zejdź o jeden przeskok w następnej serii.':'Następnym razem zacznij od jednego przeskoku niżej.'};if(r.reps>(x.tech?12:10))return{type:'up',icon:'⬆',title:x.tech?'Dodaj 2,5 kg':'Za lekko',text:x.tech?'Następnym razem zwiększ o 2,5 kg.':cur.set<x.sets?'Podbij o jeden przeskok w następnej serii.':'Od następnego treningu wejdź jeden przeskok wyżej.'};return null}
-function saveSet(){const s=state.session,q=queue(s),cur=q[s.i],kg=+$('#f-kg')?.value,reps=+$('#f-reps')?.value;if(!kg||!reps)return toast('Wpisz ciężar i powtórzenia');const r={ex:cur.ex,person:cur.person,set:cur.set,kg,reps};const b=best(cur.ex,cur.person);const pr=!b||kg*(1+reps/30)>b.kg*(1+b.reps/30);s.log.push(r);s.i++;s.draft=null;s.tip=suggestion(cur,r,s);save(LIVE,s);if(!cur.rest&&queue(s)[s.i])return handoff(queue(s)[s.i],s.tip,pr);render();if(s.tip)rest(s.tip,queue(s)[s.i])}
-function handoff(next,tip,pr){layer.innerHTML=`<div class="veil"><div class="veil-in"><span class="hand">ZMIANA NA MASZYNIE</span><h2>${P[next.person].name} wchodzi</h2><p>Przerwa zacznie się dopiero po tej samej serii u obu osób.</p>${tip?`<div class="coach ${tip.type}"><i>${tip.icon}</i><div><b>${tip.title}</b><span>${tip.text}</span></div></div>`:''}${pr?'<div class="coach pr"><i>★</i><div><b>Nowy rekord</b><span>Najlepszy wynik w tym ćwiczeniu.</span></div></div>':''}<button class="vbtn wide" data-close>Gotowe, wpisuję ${P[next.person].name}a</button></div></div>`}
-function rest(tip,next){let left=(tip?.type==='warn'?180:120),end=Date.now()+left*1000;state.session.restEnd=end;save(LIVE,state.session);layer.innerHTML=`<div class="veil"><div class="veil-in"><span class="hand">${left===180?'DŁUŻSZA PRZERWA':'PRZERWA'}</span><div class="ring"><svg width="168" height="168"><circle cx="84" cy="84" r="74" stroke="var(--s3)" stroke-width="8" fill="none"/><circle id="ring" cx="84" cy="84" r="74" stroke="${left===180?'var(--warn)':'var(--ok)'}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="465"/></svg><b id="timer">2:00</b></div><h2>Następnie</h2><p>${next&&!next.gate?P[next.person].name+' · '+EX[next.ex].n:'kolejna seria'}</p><div class="veilbuttons"><button class="vbtn" data-add="30">+30 S</button><button class="vbtn" data-close>POMIŃ</button></div></div></div>`;clearInterval(state.rest);state.rest=setInterval(()=>{left=Math.max(0,Math.ceil((end-Date.now())/1000));const e=$('#timer');if(!e)return; e.textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');if(!left){clearInterval(state.rest);layer.innerHTML='';state.session.restEnd=null;save(LIVE,state.session);render()}},250)}
-function closeLayer(){clearInterval(state.rest);layer.innerHTML='';if(state.session){state.session.restEnd=null;save(LIVE,state.session)}render()}
-function finish(){const s=state.session;if(!s.log.length)return nav('home');const rec={date:s.date,duration:Math.floor((Date.now()-s.start)/1000),solo:s.solo,sets:s.log};save(KEY,[...sessions(),rec]);localStorage.removeItem(LIVE);state.session=null;state.route='home';render();toast('Trening zapisany')}
-function stats(){const all=sessions();if(!all.length)return `<main class="page"><div class="hero"><span class="eyebrow">Statystyki</span><h1>Jeszcze nic tu nie ma.</h1></div><div class="empty"><b>Pierwszy trening zbuduje historię</b>Nie pokazuję sztucznych danych.</div></main>${tabs()}`;const p=state.person,ms=all.filter(s=>s.sets.some(x=>x.person===p)),ids=[...new Set(ms.flatMap(s=>s.sets.filter(x=>x.person===p).map(x=>x.ex)))];return `<main class="page"><div class="hero"><span class="eyebrow">Statystyki</span><h1>Progres, nie popis.</h1></div><div class="seg"><button class="pill ${p==='martin'?'active':''}" data-person="martin">MARTIN</button><button class="pill ${p==='ana'?'active':''}" data-person="ana">ANA</button></div><div class="grid2"><div class="tile"><b>${ms.length}</b><span>treningów</span></div><div class="tile"><b>${ms.reduce((a,s)=>a+s.sets.length,0)}</b><span>serii</span></div><div class="tile"><b>${ids.length}</b><span>ćwiczeń</span></div><div class="tile"><b>${ms.reduce((a,s)=>a+s.sets.filter(x=>x.person===p).length,0)}</b><span>serii ${P[p].name}</span></div></div><div class="panel"><h3>Top sety i rekordy</h3>${ids.map(id=>{const b=best(id,p);return `<div class="lrow"><span class="dot" style="background:${p==='martin'?'var(--m)':'var(--a)'}"></span><div><div>${EX[id].n}</div><div class="s">ostatnio / najlepszy wynik</div></div><div class="v">${b?b.kg+' × '+b.reps:'—'}</div></div>`}).join('')}</div></main>${tabs()}`}
-function martin(){const weights=load('duolane.weights',[]),notes=load('duolane.notes','');return `<main class="page"><div class="hero"><span class="eyebrow">Strefa Martina</span><h1>Masowanie,<em>po swojemu.</em></h1></div><div class="panel"><h3>Masa ciała</h3><div class="row-in"><input id="weight" class="mono" inputmode="decimal" placeholder="kg"><button class="btn m" data-weight>Zapisz</button></div>${weights.length?`<div class="chart">${weights.slice(-12).map(x=>`<div class="bar" style="height:${Math.max(8,(x.value-Math.min(...weights.map(y=>y.value))+1)/(Math.max(...weights.map(y=>y.value))-Math.min(...weights.map(y=>y.value))+1)*90)}px"><small>${x.value}</small></div>`).join('')}</div>`:'<div class="empty">Dodaj pierwszy pomiar.</div>'}</div><div class="panel"><h3>Notatki masy</h3><textarea id="notes" placeholder="Samopoczucie, apetyt, pomiary…">${esc(notes)}</textarea><button class="btn ghost" data-notes style="margin-top:10px">Zapisz notatkę</button></div>${shake()}</main>${tabs()}`}
-function shake(){const [lo,hi]=state.shakeRange,target=(lo+hi)/2,n=NUTRITION,base=n.protein.kcal+n.banana.kcal+n.milk.kcal,grams=Math.max(0,(target-base)/(n.peanut.kcal/100)),scale=grams/100,items=[n.protein,n.banana,n.milk,{...n.peanut,g:grams,kcal:n.peanut.kcal*scale,p:n.peanut.p*scale,c:n.peanut.c*scale,f:n.peanut.f*scale,fiber:n.peanut.fiber*scale}],total=items.reduce((a,x)=>a+x.kcal,0),mac={p:items.reduce((a,x)=>a+x.p,0),c:items.reduce((a,x)=>a+x.c,0),f:items.reduce((a,x)=>a+x.f,0),fiber:items.reduce((a,x)=>a+x.fiber,0)};return `<div class="section-title"><h2>Shake na masę</h2></div><div class="panel shake-result"><span class="eyebrow">Wybierz cel</span><div class="pillrow">${[[900,1000],[1000,1100],[1100,1200]].map(r=>`<button class="pill ${r[0]===lo?'active':''}" data-range="${r[0]}|${r[1]}">${r[0]}–${r[1]} KCAL</button>`).join('')}</div><div class="kcal-big">${Math.round(total)} kcal</div><div class="subk">cel ${lo}–${hi} · punkt docelowy ${target} kcal</div><div class="recipe">🥛<div class="nm">${n.milk.name}<small>stała ilość</small></div><div class="amt">250 ml</div></div><div class="recipe">🍌<div class="nm">${n.banana.name}<small>stała ilość</small></div><div class="amt">1 szt.</div></div><div class="recipe">🥤<div class="nm">${n.protein.name}<small>stała porcja</small></div><div class="amt">30 g</div></div><div class="recipe key">🥜<div class="nm">${n.peanut.name}<small>dobrane do celu</small></div><div class="amt">${Math.round(grams)} g</div></div><div class="macro"><div><b>${Math.round(mac.p)} g</b><span>białko</span></div><div><b>${Math.round(mac.c)} g</b><span>węgle</span></div><div><b>${Math.round(mac.f)} g</b><span>tłuszcz</span></div><div><b>${Math.round(mac.fiber)} g</b><span>błonnik</span></div></div><button class="disclosure" data-nutrients>Witaminy i minerały <b>＋</b></button><div id="nutrients" class="hide">${nutrientRows(items)}</div><p class="note">Wartości są orientacyjne. Dane białka i mleka możesz później dopasować do etykiety.</p></div>`}
-function nutrientRows(items){const v={},m={};items.forEach(x=>{Object.entries(x.vit||{}).forEach(([k,n])=>v[k]=(v[k]||0)+n);Object.entries(x.min||{}).forEach(([k,n])=>m[k]=(m[k]||0)+n)});return `<div class="panel">${Object.entries({...v,...m}).map(([k,x])=>`<div class="nut"><span class="k">${NAMES[k]||k}</span><span class="v">${x.toFixed(x<10?1:0)} ${['A','D','E','K','B9','B12','Se'].includes(k)?'µg':'mg'}</span><span class="p">szac.</span></div>`).join('')}</div>`}
-function render(){if(state.route==='run'){document.body.innerHTML='<div id="app"></div><div id="layer"></div>';customElements.define;$('#app').innerHTML=runner();return}$('#app').innerHTML=state.route==='stats'?stats():state.route==='martin'?martin():home()}
-let hold;
-document.addEventListener('click',e=>{const t=e.target.closest('[data-action],[data-nav],[data-who],[data-reunite],[data-close],[data-add],[data-dial],[data-use],[data-person],[data-range],[data-nutrients],[data-weight],[data-notes]');if(!t)return;const d=t.dataset;if(d.nav)return nav(d.nav);if(d.action==='duo')return newSession(false);if(d.action==='solo')return newSession(true);if(d.action==='resume'){state.session=load(LIVE,null);return nav('run')}if(d.action==='save')return saveSet();if(d.action==='finish')return finish();if(d.action==='abort'){if(confirm('Wyjść bez zapisu?')){localStorage.removeItem(LIVE);state.session=null;nav('home')}return}if(d.action==='skip'){state.session.i++;state.session.draft=null;save(LIVE,state.session);return render()}if(d.who){state.session.who=d.who;state.session.i++;save(LIVE,state.session);return render()}if(d.reunite!==undefined){state.session.reunited=d.reunite==='1';state.session.i++;save(LIVE,state.session);return render()}if(d.close)return closeLayer();if(d.add){if(window._restEnd)window._restEnd+=+d.add*1000;return}if(d.dial){const [which,dir]=d.dial.split('|');const el=$('#f-'+which);el.value=Math.max(0,(+el.value||0)+(+dir));state.session.draft={kg:$('#f-kg')?.value,reps:$('#f-reps')?.value};save(LIVE,state.session);return}if(d.use){const q=queue(state.session),c=q[state.session.i],x=prev(c.ex,c.person,c.set);if(x){$('#f-kg').value=x.kg;$('#f-reps').value=x.reps;state.session.draft={kg:x.kg,reps:x.reps};save(LIVE,state.session)}return}if(d.person){state.person=d.person;return render()}if(d.range){state.shakeRange=d.range.split('|').map(Number);return render()}if(d.nutrients){$('#nutrients')?.classList.toggle('hide');return}if(d.weight){const v=+$('#weight').value;if(v){const a=load('duolane.weights',[]);a.push({date:new Date().toISOString(),value:v});save('duolane.weights',a);toast('Zapisano masę');render()}return}if(d.notes){save('duolane.notes',$('#notes').value);toast('Zapisano notatkę')}});
-document.addEventListener('input',e=>{if(e.target.id==='f-kg'||e.target.id==='f-reps'){state.session.draft={kg:$('#f-kg').value,reps:$('#f-reps').value};save(LIVE,state.session)}});
-document.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-dial]');if(!b)return;const [which,dir]=b.dataset.dial.split('|');hold=setInterval(()=>{const el=$('#f-'+which);el.value=Math.max(0,(+el.value||0)+(+dir));},110)});['pointerup','pointercancel','pointerleave'].forEach(x=>document.addEventListener(x,()=>clearInterval(hold)));
-window.addEventListener('pageshow',()=>{const s=load(LIVE,null);if(s?.restEnd&&s.restEnd>Date.now())rest(null,queue(s)[s.i]);else if(s?.restEnd&&s.restEnd<=Date.now()){s.restEnd=null;save(LIVE,s)}});
-render();
+import { EX, P, TOGETHER1, SPLIT, TOGETHER2, NUTRITION, NAMES } from './data.js';
+import {
+  pushLive, readLive, dropLive, finishSession, fetchSessions,
+  addBody, fetchBody, saveSettings, loadSettings
+} from './firebase.js';
+
+/* ---------- utils ---------- */
+const $ = s => document.querySelector(s);
+const app = () => $('#app');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const now = () => Date.now();
+const REST_MS = 2 * 60 * 1000;
+const LONG_REST_MS = 3 * 60 * 1000;
+const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const dayId = ts => new Date(ts).toISOString().slice(0, 10);
+const fmtDate = ts => new Date(ts).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+const mmss = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+/* ---------- stan ---------- */
+const LS_LIVE = 'duolane.live.v2';
+const LS_HIST = 'duolane.hist.v2';
+
+const state = {
+  route: 'train',
+  session: lsGet(LS_LIVE, null),   // aktywny trening
+  history: lsGet(LS_HIST, []),     // cache Firestore
+  body: [],
+  settings: { kcalMin: 900, kcalMax: 1000, goalKg: null, ratePerWeek: null },
+  synced: false
+};
+
+/* ---------- plan sesji ---------- */
+function buildPlan(mode) {
+  const items = [];
+  const add = (id, who) => items.push({ id, who, sets: EX[id].sets });
+  if (mode === 'ana') {
+    SPLIT.ana.forEach(id => add(id, ['ana']));
+    TOGETHER2.forEach(id => add(id, ['ana']));
+    return items;
+  }
+  if (mode === 'martin') {
+    TOGETHER1.forEach(id => add(id, ['martin']));
+    SPLIT.martin.forEach(id => add(id, ['martin']));
+    TOGETHER2.forEach(id => add(id, ['martin']));
+    return items;
+  }
+  TOGETHER1.forEach(id => add(id, ['martin', 'ana']));
+  SPLIT.martin.forEach(id => add(id, ['martin']));
+  SPLIT.ana.forEach(id => add(id, ['ana']));
+  TOGETHER2.forEach(id => add(id, ['martin', 'ana']));
+  return items;
+}
+
+function newSession(mode) {
+  const startedAt = now();
+  return {
+    docId: dayId(startedAt) + '-' + mode,
+    mode, startedAt,
+    plan: buildPlan(mode),
+    entries: {},          // "exId|person|setNo" -> {kg,reps,ts}
+    restEndsAt: 0,
+    restNote: ''
+  };
+}
+
+const key = (ex, person, n) => `${ex}|${person}|${n}`;
+
+/* ---------- zapis ---------- */
+let syncTimer = null;
+function persist(immediate = false) {
+  lsSet(LS_LIVE, state.session);
+  clearTimeout(syncTimer);
+  const run = () => {
+    if (!state.session) return;
+    pushLive(state.session.docId, state.session).catch(() => {});
+  };
+  if (immediate) run(); else syncTimer = setTimeout(run, 1200);
+}
+
+/* ---------- historia ---------- */
+function lastResult(exId, person) {
+  for (const s of state.history) {
+    const rows = (s.rows || []).filter(r => r.ex === exId && r.person === person);
+    if (rows.length) return rows[rows.length - 1];
+  }
+  return null;
+}
+function bestResult(exId, person) {
+  let b = null;
+  state.history.forEach(s => (s.rows || []).forEach(r => {
+    if (r.ex !== exId || r.person !== person) return;
+    const score = r.kg * (1 + r.reps / 30);
+    if (!b || score > b.kg * (1 + b.reps / 30)) b = r;
+  }));
+  return b;
+}
+
+/* ---------- trener progresji ---------- */
+function coach(exId, person, kg, reps) {
+  if (!kg || !reps) return '';
+  const tech = !!EX[exId].tech;               // skos Martina
+  if (reps < 6) return 'Za ciężko — następnym razem zejdź o jeden przeskok maszyny.';
+  if (tech && reps >= 12) return 'Czas na +2,5 kg.';
+  if (!tech && reps > 10) return 'Lekko poszło — dołóż ciężaru.';
+  return '';
+}
+function strengthDrop(exId, person, setNo, kg, reps) {
+  if (setNo < 2) return false;
+  const p = state.session.entries[key(exId, person, setNo - 1)];
+  if (!p || !p.reps) return false;
+  return reps <= p.reps - 3;
+}
+
+/* ---------- render: nawigacja ---------- */
+function tabs() {
+  const t = [['train','Trening'],['stats','Historia'],['martin','Martin']];
+  return `<nav class="tabs">${t.map(([r,l])=>
+    `<button class="tab${state.route===r?' on':''}" data-nav="${r}">${l}</button>`).join('')}</nav>`;
+}
+
+function render() {
+  const v = state.route === 'stats' ? viewStats()
+          : state.route === 'martin' ? viewMartin()
+          : state.session ? viewSession() : viewStart();
+  app().innerHTML = v + tabs();
+}
+
+/* ---------- widok: start ---------- */
+function viewStart() {
+  const n = state.history.length;
+  const last = state.history[0];
+  return `
+  <header class="head">
+    <span class="eyebrow">Duo Lane</span>
+    <h1>Zapisz trening<em>w trzech dotknięciach.</em></h1>
+  </header>
+  <section class="start">
+    <div class="meta">${n ? `${n} treningów · ostatni ${fmtDate(last.startedAt)}` : 'Jeszcze nic tu nie ma. Pierwszy trening zaczyna historię.'}</div>
+    <button class="big m" data-start="duo">Trening razem</button>
+    <button class="big a" data-start="ana">Ana sama</button>
+    <button class="big m ghost" data-start="martin">Martin sam</button>
+  </section>`;
+}
+
+/* ---------- widok: sesja ---------- */
+function rowHTML(exId, person, n, locked) {
+  const e = state.session.entries[key(exId, person, n)] || {};
+  const prevR = lastResult(exId, person);
+  const hint = prevR ? `${prevR.kg} × ${prevR.reps}` : '—';
+  const cls = person === 'martin' ? 'm' : 'a';
+  const tip = e.kg && e.reps ? coach(exId, person, e.kg, e.reps) : '';
+  return `
+  <div class="row ${cls}${locked ? ' locked' : ''}" data-ex="${exId}" data-person="${person}" data-set="${n}">
+    <div class="who"><b>${P[person].name}</b><span>S${n}</span></div>
+    <div class="fields">
+      <label class="f"><input type="number" inputmode="decimal" step="1" class="kg" value="${e.kg ?? ''}" placeholder="${prevR ? prevR.kg : 'kg'}" ${locked?'disabled':''}><i>kg</i></label>
+      <span class="x">×</span>
+      <label class="f"><input type="number" inputmode="numeric" step="1" class="reps" value="${e.reps ?? ''}" placeholder="${prevR ? prevR.reps : 'powt'}" ${locked?'disabled':''}><i>powt</i></label>
+      ${locked ? `<span class="lock" title="Przerwa">🔒 <em data-lock>${mmss(state.session.restEndsAt - now())}</em></span>`
+               : `<button class="same" data-same title="Jak poprzednio">↺</button>`}
+    </div>
+    <div class="hintline"><span class="prev">poprzednio ${hint}</span>${tip ? `<span class="tip">${esc(tip)}</span>` : ''}</div>
+  </div>`;
+}
+
+function exerciseHTML(item, idx) {
+  const ex = EX[item.id];
+  const locked = now() < state.session.restEndsAt;
+  const rows = [];
+  for (let n = 1; n <= item.sets; n++) {
+    // blokada dotyczy tylko pierwszej niewypełnionej serii w kolejce
+    const filled = item.who.every(p => {
+      const e = state.session.entries[key(item.id, p, n)];
+      return e && e.kg && e.reps;
+    });
+    item.who.forEach(p => rows.push(rowHTML(item.id, p, n, locked && !filled && isNextUp(item, n))));
+  }
+  const done = item.who.length * item.sets;
+  const have = item.who.reduce((a, p) => a + Array.from({length:item.sets},(_,i)=>state.session.entries[key(item.id,p,i+1)]).filter(e=>e&&e.kg&&e.reps).length, 0);
+  return `
+  <article class="card${have===done?' done':''}">
+    <div class="cardhead">
+      <div><h3>${esc(ex.n)}</h3><p>${esc(ex.sub)} · ${esc(ex.grp)}</p></div>
+      <span class="count">${have}/${done}</span>
+    </div>
+    ${rows.join('')}
+  </article>`;
+}
+
+function isNextUp(item, n) {
+  // pierwszy niekompletny slot w całej sesji
+  for (const it of state.session.plan) {
+    for (let i = 1; i <= it.sets; i++) {
+      const complete = it.who.every(p => { const e = state.session.entries[key(it.id, p, i)]; return e && e.kg && e.reps; });
+      if (!complete) return it.id === item.id && i === n;
+    }
+  }
+  return false;
+}
+
+function viewSession() {
+  const s = state.session;
+  const total = s.plan.reduce((a, i) => a + i.sets * i.who.length, 0);
+  const done = Object.values(s.entries).filter(e => e.kg && e.reps).length;
+  const locked = now() < s.restEndsAt;
+  return `
+  <header class="shead">
+    <div><span class="eyebrow">${s.mode === 'duo' ? 'Razem' : s.mode === 'ana' ? 'Ana' : 'Martin'}</span>
+    <b>${done}/${total} serii</b></div>
+    <button class="finish" data-finish>Zakończ</button>
+  </header>
+  ${locked ? `<div class="restbar">🔒 Przerwa <em data-lock>${mmss(s.restEndsAt - now())}</em>${s.restNote ? ` · ${esc(s.restNote)}` : ''} <button data-skiprest>pomiń</button></div>` : ''}
+  <div class="bar"><i style="width:${total ? (done/total*100) : 0}%"></i></div>
+  <main class="feed">${s.plan.map(exerciseHTML).join('')}</main>`;
+}
+
+/* ---------- widok: historia / staty ---------- */
+function viewStats() {
+  if (!state.history.length) {
+    return `<header class="head"><span class="eyebrow">Historia</span><h1>Pusto.<em>Zrób pierwszy trening.</em></h1></header>
+    <section class="empty">Każdy zakończony trening ląduje tutaj i w chmurze.</section>`;
+  }
+  const cards = state.history.slice(0, 30).map(s => {
+    const rows = s.rows || [];
+    const byEx = {};
+    rows.forEach(r => { (byEx[r.ex] ||= []).push(r); });
+    return `<article class="card">
+      <div class="cardhead"><div><h3>${fmtDate(s.startedAt)}</h3><p>${rows.length} serii · ${s.mode === 'duo' ? 'razem' : s.mode}</p></div></div>
+      ${Object.entries(byEx).map(([id, rs]) => {
+        const top = rs.reduce((a,b)=> (b.kg*(1+b.reps/30) > a.kg*(1+a.reps/30) ? b : a));
+        return `<div class="hrow"><span>${esc(EX[id]?.n || id)}</span><b class="${top.person==='martin'?'m':'a'}">${top.kg} × ${top.reps}</b></div>`;
+      }).join('')}
+    </article>`;
+  }).join('');
+  const records = Object.keys(EX).map(id => {
+    const m = bestResult(id, 'martin'), a = bestResult(id, 'ana');
+    if (!m && !a) return '';
+    return `<div class="hrow"><span>${esc(EX[id].n)}</span><b>${m ? `<i class="m">${m.kg}×${m.reps}</i>` : ''}${a ? `<i class="a">${a.kg}×${a.reps}</i>` : ''}</b></div>`;
+  }).join('');
+  return `<header class="head"><span class="eyebrow">Historia</span><h1>${state.history.length} treningów<em>i rosnące rekordy.</em></h1></header>
+  <article class="card"><div class="cardhead"><div><h3>Rekordy</h3><p>najlepsza seria na ćwiczenie</p></div></div>${records}</article>
+  ${cards}
+  <div class="tools"><button data-export>Pobierz kopię (JSON)</button></div>`;
+}
+
+/* ---------- widok: Martin ---------- */
+function shake(kcalMin, kcalMax) {
+  const base = ['protein', 'banana', 'milk'].map(k => NUTRITION[k]);
+  const target = (kcalMin + kcalMax) / 2;
+  const kcalBase = base.reduce((a, x) => a + x.kcal, 0);
+  const pb = NUTRITION.peanut;
+  let g = Math.max(0, Math.round((target - kcalBase) / (pb.kcal / 100) / 5) * 5);
+  const parts = [...base.map(x => ({ x, f: 1 })), { x: pb, f: g / 100 }];
+  const sum = (sel) => parts.reduce((a, p) => a + (sel(p.x) || 0) * p.f, 0);
+  const micro = {};
+  parts.forEach(p => {
+    Object.entries({ ...(p.x.vit || {}), ...(p.x.min || {}) }).forEach(([k, v]) => micro[k] = (micro[k] || 0) + v * p.f);
+  });
+  return {
+    g, kcal: Math.round(sum(x => x.kcal)), p: Math.round(sum(x => x.p)),
+    c: Math.round(sum(x => x.c)), f: Math.round(sum(x => x.f)), fiber: Math.round(sum(x => x.fiber)),
+    micro
+  };
+}
+
+function viewMartin() {
+  const s = shake(state.settings.kcalMin, state.settings.kcalMax);
+  const bw = state.body;
+  const lastBw = bw[0];
+  const microRows = Object.entries(s.micro).map(([k, v]) =>
+    `<div class="hrow"><span>${esc(NAMES[k] || k)}</span><b>${v >= 10 ? Math.round(v) : v.toFixed(1)}</b></div>`).join('');
+  return `
+  <header class="head"><span class="eyebrow">Martin</span><h1>Masa i shake<em>bez zgadywania.</em></h1></header>
+  <article class="card">
+    <div class="cardhead"><div><h3>Masa ciała</h3><p>${lastBw ? `${lastBw.kg} kg · ${fmtDate(lastBw.ts)}` : 'brak wpisów'}</p></div></div>
+    <div class="inline">
+      <input type="number" step="0.1" inputmode="decimal" id="bwkg" placeholder="kg">
+      <input type="text" id="bwnote" placeholder="notatka / samopoczucie">
+      <button data-bw>Dodaj</button>
+    </div>
+    ${bw.slice(0, 8).map(b => `<div class="hrow"><span>${fmtDate(b.ts)}${b.note ? ' · ' + esc(b.note) : ''}</span><b class="m">${b.kg} kg</b></div>`).join('')}
+    <div class="inline">
+      <input type="number" step="0.1" id="goal" placeholder="cel kg" value="${state.settings.goalKg ?? ''}">
+      <input type="number" step="0.05" id="rate" placeholder="kg / tydzień" value="${state.settings.ratePerWeek ?? ''}">
+      <button data-goal>Zapisz cel</button>
+    </div>
+  </article>
+  <article class="card">
+    <div class="cardhead"><div><h3>Shake</h3><p>mleko 250 ml · białko 30 g · banan</p></div>
+      <select id="range">
+        ${[[900,1000],[1000,1100],[1100,1200]].map(([a,b])=>`<option value="${a}-${b}"${state.settings.kcalMin===a?' selected':''}>${a}–${b} kcal</option>`).join('')}
+      </select>
+    </div>
+    <div class="pb">Masło orzechowe: <b>${s.g} g</b></div>
+    <div class="macros">
+      <div><b>${s.kcal}</b><span>kcal</span></div>
+      <div><b>${s.p} g</b><span>białko</span></div>
+      <div><b>${s.c} g</b><span>węgle</span></div>
+      <div><b>${s.f} g</b><span>tłuszcz</span></div>
+      <div><b>${s.fiber} g</b><span>błonnik</span></div>
+    </div>
+    <details><summary>Witaminy i minerały</summary>${microRows}</details>
+  </article>`;
+}
+
+/* ---------- interakcje ---------- */
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('[data-nav],[data-start],[data-finish],[data-same],[data-skiprest],[data-bw],[data-goal],[data-export]');
+  if (!t) return;
+
+  if (t.dataset.nav) { state.route = t.dataset.nav; render(); if (t.dataset.nav === 'martin') refreshMartin(); return; }
+
+  if (t.dataset.start) { state.session = newSession(t.dataset.start); persist(true); state.route = 'train'; render(); return; }
+
+  if ('skiprest' in t.dataset) { state.session.restEndsAt = 0; persist(true); render(); return; }
+
+  if ('same' in t.dataset) {
+    const row = t.closest('.row');
+    const prevR = lastResult(row.dataset.ex, row.dataset.person);
+    if (prevR) { writeEntry(row.dataset.ex, row.dataset.person, +row.dataset.set, prevR.kg, prevR.reps); render(); }
+    return;
+  }
+
+  if ('finish' in t.dataset) { await finish(); return; }
+
+  if ('bw' in t.dataset) {
+    const kg = parseFloat($('#bwkg').value); if (!kg) return;
+    const entry = { kg, note: $('#bwnote').value.trim(), ts: now() };
+    state.body.unshift(entry); render();
+    addBody(entry).catch(() => {});
+    return;
+  }
+
+  if ('goal' in t.dataset) {
+    state.settings.goalKg = parseFloat($('#goal').value) || null;
+    state.settings.ratePerWeek = parseFloat($('#rate').value) || null;
+    saveSettings(state.settings).catch(() => {});
+    return;
+  }
+
+  if ('export' in t.dataset) {
+    const blob = new Blob([JSON.stringify({ sessions: state.history, body: state.body }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `duolane-${dayId(now())}.json`;
+    a.click();
+    return;
+  }
+});
+
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'range') {
+    const [a, b] = e.target.value.split('-').map(Number);
+    state.settings.kcalMin = a; state.settings.kcalMax = b;
+    saveSettings(state.settings).catch(() => {});
+    render();
+  }
+});
+
+// wpisywanie: zapis od razu, bez zatwierdzania
+document.addEventListener('input', (e) => {
+  const row = e.target.closest('.row');
+  if (!row || !state.session) return;
+  const kg = parseFloat(row.querySelector('.kg').value);
+  const reps = parseInt(row.querySelector('.reps').value, 10);
+  writeEntry(row.dataset.ex, row.dataset.person, +row.dataset.set, kg, reps, row);
+});
+
+function writeEntry(exId, person, n, kg, reps, row) {
+  const s = state.session; if (!s) return;
+  const k = key(exId, person, n);
+  const had = s.entries[k] && s.entries[k].kg && s.entries[k].reps;
+  s.entries[k] = { kg: isFinite(kg) ? kg : null, reps: isFinite(reps) ? reps : null, ts: now(), person, ex: exId, set: n };
+
+  const complete = isFinite(kg) && isFinite(reps) && kg > 0 && reps > 0;
+  if (complete && !had) {
+    const item = s.plan.find(i => i.id === exId);
+    const allDone = item.who.every(p => { const en = s.entries[key(exId, p, n)]; return en && en.kg && en.reps; });
+    if (allDone) {
+      const drop = strengthDrop(exId, person, n, kg, reps);
+      s.restEndsAt = now() + (drop ? LONG_REST_MS : REST_MS);
+      s.restNote = drop ? 'spadek siły — 3 min' : '';
+      persist(true);
+      render();
+      return;
+    }
+  }
+  persist();
+  if (row) {
+    const tip = complete ? coach(exId, person, kg, reps) : '';
+    const line = row.querySelector('.hintline .tip');
+    if (tip && !line) row.querySelector('.hintline').insertAdjacentHTML('beforeend', `<span class="tip">${esc(tip)}</span>`);
+    else if (line) line.textContent = tip;
+  }
+}
+
+/* ---------- kłódka: tyka po timestampie ---------- */
+setInterval(() => {
+  const s = state.session; if (!s || state.route !== 'train') return;
+  const left = s.restEndsAt - now();
+  if (left > 0) document.querySelectorAll('[data-lock]').forEach(el => el.textContent = mmss(left));
+  else if (s.restEndsAt) { s.restEndsAt = 0; s.restNote = ''; persist(true); render(); }
+}, 1000);
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+/* ---------- zakończenie treningu ---------- */
+async function finish() {
+  const s = state.session; if (!s) return;
+  const rows = Object.values(s.entries).filter(e => e.kg && e.reps)
+    .sort((a, b) => a.ts - b.ts)
+    .map(({ ex, person, set, kg, reps, ts }) => ({ ex, person, set, kg, reps, ts }));
+  if (!rows.length) { state.session = null; lsSet(LS_LIVE, null); dropLive(s.docId); render(); return; }
+  const session = { mode: s.mode, startedAt: s.startedAt, endedAt: now(), rows };
+  state.history.unshift(session); lsSet(LS_HIST, state.history);
+  state.session = null; lsSet(LS_LIVE, null);
+  render();
+  try { await finishSession(session); await dropLive(s.docId); } catch (e) {}
+}
+
+/* ---------- start ---------- */
+async function refreshMartin() {
+  try {
+    const [b, st] = await Promise.all([fetchBody(), loadSettings()]);
+    state.body = b.sort((x, y) => y.ts - x.ts);
+    state.settings = { ...state.settings, ...st };
+    if (state.route === 'martin') render();
+  } catch (e) {}
+}
+
+async function boot() {
+  render();
+  // aktywna sesja z chmury wygrywa, jeśli nowsza
+  try {
+    if (state.session) {
+      const cloud = await readLive(state.session.docId);
+      if (cloud && (cloud.updatedAt || 0) > (lsGet(LS_LIVE, {})?.updatedAt || 0)) state.session = cloud;
+    }
+  } catch (e) {}
+  try {
+    const h = await fetchSessions();
+    if (h.length) { state.history = h.sort((a, b) => b.startedAt - a.startedAt); lsSet(LS_HIST, state.history); }
+    state.synced = true;
+  } catch (e) {}
+  render();
+  refreshMartin();
+}
+boot();

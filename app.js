@@ -12,6 +12,9 @@ let currentSessionData = {};
 let historyData = {}; 
 let currentWorkoutLogs = { date: new Date().toISOString(), entries: {} };
 
+let timerInterval = null;
+let timerSeconds = 0;
+
 let touchStartX = 0;
 let touchEndX = 0;
 
@@ -46,9 +49,28 @@ window.startSession = async function(mode) {
   
   document.getElementById('loading-screen').classList.add('hidden');
   document.getElementById('exercise-card-view').classList.remove('hidden');
+  document.getElementById('app-header').classList.remove('hidden');
   
+  startTimer();
   setupSwipeListeners();
-  renderSingleSetCard(); // Od razu wchodzimy do karty roboczej, bez zbędnych blokad!
+  renderSingleSetCard();
+};
+
+function startTimer() {
+  timerSeconds = 0;
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+    const s = (timerSeconds % 60).toString().padStart(2, '0');
+    document.getElementById('workout-timer').innerText = `${m}:${s}`;
+  }, 1000);
+}
+
+window.confirmExit = function() {
+  if (confirm("Czy na pewno chcesz zakończyć ten trening i wrócić do menu?")) {
+    location.reload();
+  }
 };
 
 function setupSwipeListeners() {
@@ -66,18 +88,10 @@ function setupSwipeListeners() {
 
 function handleSwipe() {
   const diffX = touchStartX - touchEndX;
-  
-  // SWIPE W LEWO (👈) -> Idź dalej
-  if (diffX > 50) {
-    window.goNext();
-  } 
-  // SWIPE W PRAWO (👉) -> Cofnij
-  else if (diffX < -50) {
-    window.goBack();
-  }
+  if (diffX > 50) window.goNext();
+  else if (diffX < -50) window.goBack();
 }
 
-// ZAPIS DANYCH W TLE (Bez blokowania użytkownika)
 function saveCurrentStateSilently() {
   const list = workoutPlan[activeMode];
   const ex = list[currentExIndex];
@@ -86,7 +100,7 @@ function saveCurrentStateSilently() {
   if (activeMode === 'martin_session') {
     const wM = document.getElementById('martin_weight')?.value || getDefaultWeight(ex.id, 'martin');
     const keyM = `${ex.id}_martin`;
-    const repsM = selectedRepsM || historyData[keyM]?.reps || 8; // Jeśli nic nie klikał, bierze z historii
+    const repsM = selectedRepsM || historyData[keyM]?.reps || 8;
 
     currentSessionData[keyM] = { weight: wM, reps: repsM };
     currentWorkoutLogs.entries[keyM] = { weight: wM, reps: repsM };
@@ -101,7 +115,6 @@ function saveCurrentStateSilently() {
     currentWorkoutLogs.entries[keyA] = { weight: wA, reps: repsA };
   }
 
-  // Zapis do bazy w tle
   addDoc(collection(db, "workouts"), {
     ...currentWorkoutLogs,
     date: new Date().toISOString()
@@ -110,7 +123,6 @@ function saveCurrentStateSilently() {
 
 window.goNext = function() {
   saveCurrentStateSilently();
-  
   const list = workoutPlan[activeMode];
   const ex = list[currentExIndex];
 
@@ -130,7 +142,6 @@ window.goNext = function() {
 
 window.goBack = function() {
   saveCurrentStateSilently();
-  
   const list = workoutPlan[activeMode];
   
   if (currentSetNumber > 1) {
@@ -154,13 +165,12 @@ function renderSingleSetCard() {
     return;
   }
 
-  // Pasek postępu
+  document.getElementById('header-ex-name').innerText = ex.name.split('.')[1] || ex.name;
+  document.getElementById('header-set-counter').innerText = `SERIA ${currentSetNumber}/${ex.totalSets}`;
+
   const progressPercent = ((currentExIndex) / list.length) * 100;
   document.getElementById('progress-fill').style.width = `${progressPercent}%`;
-  document.getElementById('progress-text').innerText = `Ćwiczenie ${currentExIndex + 1} z ${list.length}`;
-  document.getElementById('set-badge').innerText = `SERIA ${currentSetNumber} z ${ex.totalSets}`;
 
-  // Reset wyboru dla nowej karty
   selectedRepsM = currentSessionData[`${ex.id}_martin`]?.reps || null;
   selectedRepsA = currentSessionData[`${ex.id}_ana`]?.reps || null;
 
@@ -169,10 +179,7 @@ function renderSingleSetCard() {
   let html = `
     <div class="card">
       ${imgHtml}
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h2 style="margin: 0; font-size: 18px;">${ex.name}</h2>
-        ${(currentExIndex > 0 || currentSetNumber > 1) ? `<button onclick="window.goBack()" class="btn-back">↩ Cofnij</button>` : ''}
-      </div>
+      <h2 style="margin: 0 0 12px 0; font-size: 18px;">${ex.name}</h2>
   `;
 
   if (activeMode === 'martin_session') {
@@ -197,7 +204,6 @@ function renderSingleSetCard() {
 
   container.innerHTML = html;
 
-  // Odznacz ewentualnie zapamiętane przyciski
   if (selectedRepsM) highlightRep('martin', selectedRepsM);
   if (selectedRepsA) highlightRep('ana', selectedRepsA);
 }
@@ -217,13 +223,13 @@ function renderPersonSection(personCode, personName, lastText, defaultWeight) {
         <span class="history-badge">Ostatnio: ${lastText}</span>
       </div>
       
-      <div style="margin-bottom: 8px;">
-        <label class="input-label">Ciężar (kg)</label>
-        <input type="number" id="${personCode}_weight" value="${defaultWeight}" placeholder="0" class="weight-input">
+      <div class="input-group">
+        <label class="input-label">Ciężar Roboczy</label>
+        <div><input type="number" id="${personCode}_weight" value="${defaultWeight}" class="weight-input"> <span style="font-size:12px; font-weight:700;">kg</span></div>
       </div>
 
       <div>
-        <label class="input-label">Wykonane Powtórzenia</label>
+        <label class="input-label" style="margin-bottom:6px; display:block;">Powtórzenia</label>
         <div class="reps-grid">
           ${repsButtons}
         </div>
@@ -277,14 +283,15 @@ function getDefaultWeight(exId, person) {
 }
 
 function renderCompletionScreen() {
+  clearInterval(timerInterval);
   document.getElementById('progress-fill').style.width = `100%`;
   const container = document.getElementById('card-container');
   container.innerHTML = `
-    <div class="card" style="text-align: center; padding: 30px 16px;">
-      <span style="font-size: 50px; display: block; margin-bottom: 8px;">🎉</span>
+    <div class="card" style="text-align: center; padding: 40px 16px;">
+      <span style="font-size: 50px; display: block; margin-bottom: 8px;">🔥</span>
       <h2>Trening Zakończony!</h2>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Wszystkie wyniki zostały automatycznie zapisane.</p>
-      <button onclick="location.reload()" class="btn-submit">Powrót do Menu</button>
+      <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 24px;">Czas sesji: ${document.getElementById('workout-timer').innerText}</p>
+      <button onclick="location.reload()" class="btn-submit">Wróć do Menu</button>
     </div>
   `;
 }

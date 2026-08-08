@@ -1,45 +1,17 @@
-export const initialNotes = {
-  martin: {
-    latzug: '54 kg x 8',
-    wioslowanie: '54 kg x 7',
-    wyciskanie_skos: '5 kg x 8',
-    bary: '14 kg x 8 / 22 kg x 7-8',
-    rozpietki: '36 kg x 8',
-    overhead_triceps: '10 kg x 7',
-    pushdown_triceps: '12 kg x 11',
-    biceps_maszyna: '32 kg x 9 / 5 kg x 20',
-    wznosy: '36 kg x 8'
-  },
-  ana: {
-    latzug: '50 kg x 11',
-    wioslowanie: '50 kg x 6-7',
-    overhead_triceps: '12 kg x 10',
-    pushdown_triceps: '17 kg x 5-6',
-    biceps_maszyna: '18 kg',
-    wznosy: '36 kg x 8',
-    a_legpress: '72 kg x 8',
-    a_hamstrings: '27 kg',
-    a_abductor: '45 kg x 12',
-    a_calves: '20 kg'
-  }
+export const EX={
+ latzug:{n:'Latzug',sub:'ściąganie z góry',grp:'Plecy',sets:2},wioslowanie:{n:'Wiosłowanie w siadzie',sub:'maszyna',grp:'Plecy',sets:2},
+ wyciskanie_skos:{n:'Wyciskanie skos',sub:'hantle',grp:'Klatka',sets:2,tech:true},bary:{n:'Shoulder press',sub:'bary',grp:'Barki',sets:2},rozpietki:{n:'Rozpiętki',sub:'pec-deck',grp:'Klatka',sets:2},
+ a_legpress:{n:'Suwnica',sub:'Beinpresse',grp:'Nogi',sets:2},a_hamstrings:{n:'Uginanie nóg',sub:'dwugłowy',grp:'Nogi',sets:2},a_abductor:{n:'Abduktor',sub:'maszyna',grp:'Pośladki',sets:2},a_calves:{n:'Łydki',sub:'maszyna',grp:'Łydki',sets:2},
+ overhead_triceps:{n:'Overhead triceps',sub:'wyciąg',grp:'Triceps',sets:1},pushdown_triceps:{n:'Pushdown',sub:'wyciąg',grp:'Triceps',sets:1},biceps_maszyna:{n:'Biceps siedzący',sub:'maszyna',grp:'Biceps',sets:2},wznosy:{n:'Wznosy bokiem',sub:'maszyna',grp:'Barki',sets:2}
 };
-
-export const workoutPlan = {
-  martin_session: [
-    { id: 'latzug', name: '1. Latzug (Ściąganie z góry)', isJoint: true, totalSets: 2, image: 'https://www.google.com/url?sa=t&source=web&rct=j&url=https%3A%2F%2Fde.matrixfitness.com%2Fdeu%2Fstrength%2Fsingle-station%2Fg7-s33-diverging-lat-pulldown&ved=0CBYQjRxqFwoTCOCgoYzOj5YDFQAAAAAdAAAAABA4&opi=89978449' },
-    { id: 'wioslowanie', name: '2. Wiosłowanie w siadzie', isJoint: true, totalSets: 2, image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=500&auto=format&fit=crop' },
-    { id: 'wyciskanie_skos', name: '3. Wyciskanie skos', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=500&auto=format&fit=crop' },
-    { id: 'bary', name: '4. Bary (Shoulder Press)', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=500&auto=format&fit=crop' },
-    { id: 'rozpietki', name: '5. Rozpiętki na Pec-Decu', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=500&auto=format&fit=crop' },
-    { id: 'overhead_triceps', name: '6. Overhead Triceps', isJoint: true, totalSets: 1, image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=500&auto=format&fit=crop' },
-    { id: 'pushdown_triceps', name: '7. Pushdown Triceps', isJoint: true, totalSets: 1, image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=500&auto=format&fit=crop' },
-    { id: 'biceps_maszyna', name: '8. Biceps maszyna siedząca', isJoint: true, totalSets: 2, image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=500&auto=format&fit=crop' },
-    { id: 'wznosy', name: '9. Wznosy bokiem', isJoint: true, totalSets: 2, image: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=500&auto=format&fit=crop' }
-  ],
-  ana_solo: [
-    { id: 'a_legpress', name: '1. Suwnica / Beinpresse', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=500&auto=format&fit=crop' },
-    { id: 'a_hamstrings', name: '2. Uginanie nóg (Dwugłowy)', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=500&auto=format&fit=crop' },
-    { id: 'a_abductor', name: '3. Abduktor (Pośladki)', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=500&auto=format&fit=crop' },
-    { id: 'a_calves', name: '4. Łydki', isJoint: false, totalSets: 2, image: 'https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=500&auto=format&fit=crop' }
-  ]
+export const P={martin:{name:'Martin',k:'m'},ana:{name:'Ana',k:'a'}};
+export const TOGETHER1=['latzug','wioslowanie'];
+export const SPLIT={martin:['wyciskanie_skos','bary','rozpietki'],ana:['a_legpress','a_hamstrings','a_abductor','a_calves']};
+export const TOGETHER2=['overhead_triceps','pushdown_triceps','biceps_maszyna','wznosy'];
+export const NUTRITION={
+ protein:{name:'Bodylab24 Whey Neutral',g:30,kcal:118,p:22,c:2,f:2,fiber:0,vit:{},min:{}},
+ banana:{name:'Średni banan',g:118,kcal:105,p:1.3,c:27,f:.4,fiber:3.1,vit:{A:3,C:10.3,E:.1,K:.5,B1:.04,B2:.1,B3:.8,B5:.3,B6:.43,B9:24},min:{Ca:6,Fe:.3,Mg:32,P:26,K:422,Na:1,Zn:.2,Cu:.1,Mn:.3,Se:1}},
+ milk:{name:'Mleko 1,5%',g:250,kcal:117,p:8.3,c:12,f:3.8,fiber:0,vit:{A:90,D:2.5,E:.1,K:.5,B1:.1,B2:.45,B3:.2,B5:.9,B6:.1,B9:12,B12:1.1},min:{Ca:300,Fe:0,Mg:27,P:230,K:380,Na:105,Zn:1,Cu:0,Mn:0,Se:8}},
+ peanut:{name:'Masło orzechowe 100%',g:100,kcal:640,p:25,c:18,f:52,fiber:7,vit:{A:0,C:0,E:9,K:0,B1:.1,B2:.1,B3:13,B5:1.8,B6:.5,B9:87},min:{Ca:60,Fe:2.1,Mg:180,P:350,K:650,Na:10,Zn:3,Cu:.6,Mn:1.6,Se:4}}
 };
+export const NAMES={A:'Witamina A',C:'Witamina C',D:'Witamina D',E:'Witamina E',K:'Witamina K',B1:'B1',B2:'B2',B3:'B3',B5:'B5',B6:'B6',B9:'Foliany',B12:'B12',Ca:'Wapń',Fe:'Żelazo',Mg:'Magnez',P:'Fosfor',K:'Potas',Na:'Sód',Zn:'Cynk',Cu:'Miedź',Mn:'Mangan',Se:'Selen'};

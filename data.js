@@ -1,17 +1,7 @@
-export const EX={
- latzug:{n:'Latzug',sub:'ściąganie z góry',grp:'Plecy',sets:2},wioslowanie:{n:'Wiosłowanie w siadzie',sub:'maszyna',grp:'Plecy',sets:2},
- wyciskanie_skos:{n:'Wyciskanie skos',sub:'hantle',grp:'Klatka',sets:2,tech:true},bary:{n:'Shoulder press',sub:'bary',grp:'Barki',sets:2},rozpietki:{n:'Rozpiętki',sub:'pec-deck',grp:'Klatka',sets:2},
- a_legpress:{n:'Suwnica',sub:'Beinpresse',grp:'Nogi',sets:2},a_hamstrings:{n:'Uginanie nóg',sub:'dwugłowy',grp:'Nogi',sets:2},a_abductor:{n:'Abduktor',sub:'maszyna',grp:'Pośladki',sets:2},a_calves:{n:'Łydki',sub:'maszyna',grp:'Łydki',sets:2},
- overhead_triceps:{n:'Overhead triceps',sub:'wyciąg',grp:'Triceps',sets:1},pushdown_triceps:{n:'Pushdown',sub:'wyciąg',grp:'Triceps',sets:1},biceps_maszyna:{n:'Biceps siedzący',sub:'maszyna',grp:'Biceps',sets:2},wznosy:{n:'Wznosy bokiem',sub:'maszyna',grp:'Barki',sets:2}
-};
+export const EX={latzug:{n:'Latzug',sub:'ściąganie z góry',grp:'Plecy',sets:2},wioslowanie:{n:'Wiosłowanie w siadzie',sub:'maszyna',grp:'Plecy',sets:2},wyciskanie_skos:{n:'Wyciskanie skos',sub:'hantle',grp:'Klatka',sets:2,tech:true},bary:{n:'Shoulder press',sub:'bary',grp:'Barki',sets:2},rozpietki:{n:'Rozpiętki',sub:'pec-deck',grp:'Klatka',sets:2},a_legpress:{n:'Suwnica',sub:'Beinpresse',grp:'Nogi',sets:2},a_hamstrings:{n:'Uginanie nóg',sub:'dwugłowy',grp:'Nogi',sets:2},a_abductor:{n:'Abduktor',sub:'maszyna',grp:'Pośladki',sets:2},a_calves:{n:'Łydki',sub:'maszyna',grp:'Łydki',sets:2},overhead_triceps:{n:'Overhead triceps',sub:'wyciąg',grp:'Triceps',sets:1},pushdown_triceps:{n:'Pushdown',sub:'wyciąg',grp:'Triceps',sets:1},biceps_maszyna:{n:'Biceps siedzący',sub:'maszyna',grp:'Biceps',sets:2},wznosy:{n:'Wznosy bokiem',sub:'maszyna',grp:'Barki',sets:2}};
 export const P={martin:{name:'Martin',k:'m'},ana:{name:'Ana',k:'a'}};
 export const TOGETHER1=['latzug','wioslowanie'];
 export const SPLIT={martin:['wyciskanie_skos','bary','rozpietki'],ana:['a_legpress','a_hamstrings','a_abductor','a_calves']};
 export const TOGETHER2=['overhead_triceps','pushdown_triceps','biceps_maszyna','wznosy'];
-export const NUTRITION={
- protein:{name:'Bodylab24 Whey Neutral',g:30,kcal:118,p:22,c:2,f:2,fiber:0,vit:{},min:{}},
- banana:{name:'Średni banan',g:118,kcal:105,p:1.3,c:27,f:.4,fiber:3.1,vit:{A:3,C:10.3,E:.1,K:.5,B1:.04,B2:.1,B3:.8,B5:.3,B6:.43,B9:24},min:{Ca:6,Fe:.3,Mg:32,P:26,K:422,Na:1,Zn:.2,Cu:.1,Mn:.3,Se:1}},
- milk:{name:'Mleko 1,5%',g:250,kcal:117,p:8.3,c:12,f:3.8,fiber:0,vit:{A:90,D:2.5,E:.1,K:.5,B1:.1,B2:.45,B3:.2,B5:.9,B6:.1,B9:12,B12:1.1},min:{Ca:300,Fe:0,Mg:27,P:230,K:380,Na:105,Zn:1,Cu:0,Mn:0,Se:8}},
- peanut:{name:'Masło orzechowe 100%',g:100,kcal:640,p:25,c:18,f:52,fiber:7,vit:{A:0,C:0,E:9,K:0,B1:.1,B2:.1,B3:13,B5:1.8,B6:.5,B9:87},min:{Ca:60,Fe:2.1,Mg:180,P:350,K:650,Na:10,Zn:3,Cu:.6,Mn:1.6,Se:4}}
-};
-export const NAMES={A:'Witamina A',C:'Witamina C',D:'Witamina D',E:'Witamina E',K:'Witamina K',B1:'B1',B2:'B2',B3:'B3',B5:'B5',B6:'B6',B9:'Foliany',B12:'B12',Ca:'Wapń',Fe:'Żelazo',Mg:'Magnez',P:'Fosfor',K:'Potas',Na:'Sód',Zn:'Cynk',Cu:'Miedź',Mn:'Mangan',Se:'Selen'};
+export const NUTRITION={protein:{name:'Bodylab24 Whey Neutral',g:30,kcal:118,p:22,c:2,f:2,fiber:0,vit:{},min:{}},banana:{name:'Średni banan',g:118,kcal:105,p:1.3,c:27,f:.4,fiber:3.1,vit:{A:3,C:10.3,E:.1,K:.5,B1:.04,B2:.1,B3:.8,B5:.3,B6:.43,B9:24},min:{Ca:6,Fe:.3,Mg:32,P:26,K:422,Na:1,Zn:.2,Cu:.1,Mn:.3,Se:1}},milk:{name:'Mleko 1,5%',g:250,kcal:117,p:8.3,c:12,f:3.8,fiber:0,vit:{A:90,D:2.5,E:.1,K:.5,B1:.1,B2:.45,B3:.2,B5:.9,B6:.1,B9:12,B12:1.1},min:{Ca:300,Fe:0,Mg:27,P:230,K:380,Na:105,Zn:1,Cu:0,Mn:0,Se:8}},peanut:{name:'Masło orzechowe 100%',g:100,kcal:640,p:25,c:18,f:52,fiber:7,vit:{A:0,C:0,E:9,K:0,B1:.1,B2:.1,B3:13,B5:1.8,B6:.5,B9:87},min:{Ca:60,Fe:2.1,Mg:180,P:350,K:650,Na:10,Zn:3,Cu:.6,Mn:1.6,Se:4}}};
+export const NAMES={A:'Witamina A',C:'Witamina C',D:'Witamina D',E:'Witamina E',K:'Witamina K',B1:'B1',B2:'B2',B3:'B3',B5:'B5',B6:'B6',B9:'Foliany',B12:'B12',Ca:'Wapń',Fe:'Żelazo',Mg:'Magnez',P:'Fosfor',Na:'Sód',Zn:'Cynk',Cu:'Miedź',Mn:'Mangan',Se:'Selen'};

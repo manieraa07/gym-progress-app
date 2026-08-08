@@ -11,7 +11,6 @@ let currentSessionData = {};
 let historyData = {}; 
 let currentWorkoutLogs = { date: new Date().toISOString(), entries: {} };
 
-// ZMIENNE DLA OBSŁUGI GESTÓW (SWIPE)
 let touchStartX = 0;
 let touchEndX = 0;
 
@@ -51,7 +50,6 @@ window.startSession = async function(mode) {
   showExercisePreview();
 };
 
-// INICJALIZACJA OBSŁUGI DOTYKU/SWIPE
 function setupSwipeListeners() {
   const container = document.getElementById('card-container');
 
@@ -67,12 +65,31 @@ function setupSwipeListeners() {
 
 function handleSwipe() {
   const diffX = touchStartX - touchEndX;
-  // Przesunięcie w lewo o co najmniej 60px traktujemy jako akcję „Następna seria”
+  
+  // SWIPE W LEWO (👈) -> Idź dalej
   if (diffX > 60) {
     const submitBtn = document.querySelector('.btn-submit');
     if (submitBtn) submitBtn.click();
+  } 
+  // SWIPE W PRAWO (👉) -> Cofnij
+  else if (diffX < -60) {
+    window.goBack();
   }
 }
+
+window.goBack = function() {
+  const list = workoutPlan[activeMode];
+  
+  if (currentSetNumber > 1) {
+    currentSetNumber--;
+    animateAndProceed(() => renderSingleSetCard(), 'right');
+  } else if (currentExIndex > 0) {
+    currentExIndex--;
+    const prevEx = list[currentExIndex];
+    currentSetNumber = prevEx.totalSets;
+    animateAndProceed(() => renderSingleSetCard(), 'right');
+  }
+};
 
 function showExercisePreview() {
   const list = workoutPlan[activeMode];
@@ -84,14 +101,13 @@ function showExercisePreview() {
     return;
   }
 
-  const imgHtml = ex.image ? `<img src="${ex.image}" alt="${ex.name}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--card-border);">` : '<span class="preview-icon">🏋️‍♂️</span>';
+  const imgHtml = ex.image ? `<img src="${ex.image}" alt="${ex.name}" class="preview-img">` : '<span class="preview-icon">🏋️‍♂️</span>';
 
   container.innerHTML = `
     <div class="card preview-card">
       ${imgHtml}
-      <span style="font-size: 11px; color: var(--accent-green); font-weight: 800; letter-spacing: 1px;">NASTĘPNE ĆWICZENIE</span>
-      <h2 style="margin: 6px 0 4px 0;">${ex.name}</h2>
-      <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Przygotuj się do rozpoczęcia serii</p>
+      <span class="preview-badge">NASTĘPNE ĆWICZENIE</span>
+      <h2>${ex.name}</h2>
     </div>
   `;
 
@@ -103,7 +119,7 @@ function showExercisePreview() {
     } else {
       renderSingleSetCard();
     }
-  }, 1800);
+  }, 1400);
 }
 
 function renderWarmupCard(ex) {
@@ -111,39 +127,31 @@ function renderWarmupCard(ex) {
   const lastMWeight = parseFloat(historyData['latzug_martin']?.weight || 54);
   const lastAWeight = parseFloat(historyData['latzug_ana']?.weight || 50);
 
-  const m50 = Math.round(lastMWeight * 0.5);
-  const m75 = Math.round(lastMWeight * 0.75);
-  const a50 = Math.round(lastAWeight * 0.5);
-  const a75 = Math.round(lastAWeight * 0.75);
-
   container.innerHTML = `
     <div class="card">
-      <div style="text-align: center; margin-bottom: 16px;">
-        <span style="font-size: 11px; color: var(--martin-color); font-weight: 800; letter-spacing: 1px;">ROZGRZEWKA PLECÓW 🩸</span>
+      <div style="text-align: center; margin-bottom: 12px;">
+        <span class="preview-badge">ROZGRZEWKA PLECÓW 🩸</span>
         <h2 style="margin: 4px 0;">Rozgrzewka (Latzug)</h2>
-        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Wykonajcie 2 serie aktywacyjne</p>
       </div>
 
       <div class="person-box martin">
-        <div class="person-title">MARTIN (Cel Roboczy: ~${lastMWeight} kg)</div>
-        <div style="font-size: 13px; margin-top: 6px;">
-          • <strong>Seria 1 (50%):</strong> ~${m50} kg × 10-12 powt<br>
-          • <strong>Seria 2 (75%):</strong> ~${m75} kg × 4-5 powt
+        <div class="person-title">MARTIN (Cel: ~${lastMWeight} kg)</div>
+        <div style="font-size: 13px; margin-top: 4px;">
+          • <strong>Seria 1 (50%):</strong> ~${Math.round(lastMWeight * 0.5)} kg × 10-12<br>
+          • <strong>Seria 2 (75%):</strong> ~${Math.round(lastMWeight * 0.75)} kg × 4-5
         </div>
       </div>
 
       <div class="person-box ana">
-        <div class="person-title">ANA (Cel Roboczy: ~${lastAWeight} kg)</div>
-        <div style="font-size: 13px; margin-top: 6px;">
-          • <strong>Seria 1 (50%):</strong> ~${a50} kg × 10-12 powt<br>
-          • <strong>Seria 2 (75%):</strong> ~${a75} kg × 4-5 powt
+        <div class="person-title">ANA (Cel: ~${lastAWeight} kg)</div>
+        <div style="font-size: 13px; margin-top: 4px;">
+          • <strong>Seria 1 (50%):</strong> ~${Math.round(lastAWeight * 0.5)} kg × 10-12<br>
+          • <strong>Seria 2 (75%):</strong> ~${Math.round(lastAWeight * 0.75)} kg × 4-5
         </div>
       </div>
 
-      <button onclick="window.finishWarmup()" class="btn-submit">
-        Rozgrzani! Zaczynamy Serie Robocze →
-      </button>
-      <div class="swipe-hint">👈 Przesuń w lewo, aby zatwierdzić</div>
+      <button onclick="window.finishWarmup()" class="btn-submit">Rozgrzani! Zaczynamy →</button>
+      <div class="swipe-hint">👈 Przesuń w lewo, aby przejść dalej</div>
     </div>
   `;
 }
@@ -151,29 +159,27 @@ function renderWarmupCard(ex) {
 function renderInclineWarmupCard(ex) {
   const container = document.getElementById('card-container');
   container.innerHTML = `
-    <div class="card" style="border: 1px solid var(--martin-color);">
-      <div style="text-align: center; margin-bottom: 16px;">
-        <span style="font-size: 11px; color: var(--martin-color); font-weight: 800; letter-spacing: 1px;">PRZYPOMNIENIE O ROZGRZEWCE 🎯</span>
+    <div class="card">
+      <div style="text-align: center; margin-bottom: 12px;">
+        <span class="preview-badge">ROZGRZEWKA 🎯</span>
         <h2 style="margin: 4px 0;">Wyciskanie Skos (Martin)</h2>
       </div>
 
       <div class="person-box martin">
         <div class="person-title">MARTIN</div>
-        <div style="font-size: 13px; margin-top: 6px; line-height: 1.4;">
-          ⚠️ Pamiętaj o zrobieniu <strong>1-2 lekkich serii rozgrzewkowych</strong> przed serią roboczą!
+        <div style="font-size: 13px; margin-top: 4px;">
+          ⚠️ Pamiętaj o <strong>1-2 lekkich seriach rozgrzewkowych</strong> przed serią roboczą!
         </div>
       </div>
 
-      <button onclick="window.finishWarmup()" class="btn-submit">
-        Rozgrzany, Lecimy z Serią 1 →
-      </button>
-      <div class="swipe-hint">👈 Przesuń w lewo, aby zatwierdzić</div>
+      <button onclick="window.finishWarmup()" class="btn-submit">Rozgrzany! Zaczynamy →</button>
+      <div class="swipe-hint">👈 Przesuń w lewo | 👉 Przesuń w prawo (cofnij)</div>
     </div>
   `;
 }
 
 window.finishWarmup = function() {
-  animateAndProceed(() => renderSingleSetCard());
+  animateAndProceed(() => renderSingleSetCard(), 'left');
 };
 
 function renderSingleSetCard() {
@@ -196,7 +202,10 @@ function renderSingleSetCard() {
 
   let html = `
     <div class="card">
-      <h2 style="margin: 0 0 16px 0; font-size: 20px;">${ex.name}</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 style="margin: 0; font-size: 18px;">${ex.name}</h2>
+        ${(currentExIndex > 0 || currentSetNumber > 1) ? `<button onclick="window.goBack()" class="btn-back">↩ Cofnij</button>` : ''}
+      </div>
   `;
 
   if (activeMode === 'martin_session') {
@@ -215,7 +224,7 @@ function renderSingleSetCard() {
       <button onclick="window.submitSet()" class="btn-submit">
         Zatwierdź Serię ${currentSetNumber} →
       </button>
-      <div class="swipe-hint">👈 Przesuń w lewo lub kliknij button</div>
+      <div class="swipe-hint">👈 Dalej | 👉 Cofnij</div>
     </div>
   `;
 
@@ -234,10 +243,10 @@ function renderPersonSection(personCode, personName, lastText, defaultWeight) {
     <div class="person-box ${personCode}">
       <div class="person-header">
         <span class="person-title">${personName}</span>
-        <span class="history-badge">🏷️ Ostatnio: ${lastText}</span>
+        <span class="history-badge">Ostatnio: ${lastText}</span>
       </div>
       
-      <div>
+      <div style="margin-bottom: 8px;">
         <label class="input-label">Ciężar (kg)</label>
         <input type="number" id="${personCode}_weight" value="${defaultWeight}" placeholder="0" class="weight-input">
       </div>
@@ -347,14 +356,12 @@ function showPopupCard(messages, onConfirm) {
   const container = document.getElementById('card-container');
   container.innerHTML = `
     <div class="card" style="border: 2px solid var(--accent-green); text-align: center;">
-      <span style="font-size: 40px; display: block; margin-bottom: 8px;">🎯</span>
-      <h3 style="margin: 0; color: var(--accent-green); font-size: 18px;">Sugestia Trenera</h3>
-      <div style="margin: 16px 0; font-size: 13px; line-height: 1.5; text-align: left; background: #090d16; padding: 12px; border-radius: 12px; border: 1px solid var(--card-border);">
+      <span style="font-size: 36px; display: block; margin-bottom: 4px;">🎯</span>
+      <h3 style="margin: 0; color: var(--accent-green); font-size: 16px;">Sugestia Trenera</h3>
+      <div style="margin: 12px 0; font-size: 13px; line-height: 1.4; text-align: left; background: #090d16; padding: 10px; border-radius: 8px;">
         ${messages.join('<br><br>')}
       </div>
-      <button id="popup-confirm-btn" class="btn-submit">
-        Okej, Rozumiem →
-      </button>
+      <button id="popup-confirm-btn" class="btn-submit">Dalej →</button>
     </div>
   `;
   document.getElementById('popup-confirm-btn').onclick = onConfirm;
@@ -370,16 +377,18 @@ function advanceFlow(ex) {
       currentExIndex++;
       showExercisePreview();
     }
-  });
+  }, 'left');
 }
 
-function animateAndProceed(callback) {
+function animateAndProceed(callback, direction = 'left') {
   const container = document.getElementById('card-container');
-  container.classList.add('swipe-left');
+  const className = direction === 'left' ? 'swipe-left' : 'swipe-right';
+  
+  container.classList.add(className);
   setTimeout(() => {
     callback();
-    container.classList.remove('swipe-left');
-  }, 200);
+    container.classList.remove(className);
+  }, 180);
 }
 
 function getLastRecord(exId, person) {
@@ -403,10 +412,10 @@ function renderCompletionScreen() {
   document.getElementById('progress-fill').style.width = `100%`;
   const container = document.getElementById('card-container');
   container.innerHTML = `
-    <div class="card" style="text-align: center; padding: 40px 20px;">
-      <span style="font-size: 60px; display: block; margin-bottom: 12px;">🎉</span>
+    <div class="card" style="text-align: center; padding: 30px 16px;">
+      <span style="font-size: 50px; display: block; margin-bottom: 8px;">🎉</span>
       <h2>Trening Zakończony!</h2>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Świetna robota! Wszystkie wyniki zostały trwale zapisane.</p>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Świetna robota! Wyniki zapisane w bazie.</p>
       <button onclick="location.reload()" class="btn-submit">Powrót do Menu</button>
     </div>
   `;

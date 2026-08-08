@@ -11,18 +11,19 @@ let currentSessionData = {};
 let historyData = {}; 
 let currentWorkoutLogs = { date: new Date().toISOString(), entries: {} };
 
+// ZMIENNE DLA OBSŁUGI GESTÓW (SWIPE)
+let touchStartX = 0;
+let touchEndX = 0;
+
 async function loadHistoryWithTimeout() {
   const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 1500));
-  
   const fetchPromise = (async () => {
     try {
       const q = query(collection(db, "workouts"), orderBy("date", "desc"), limit(1));
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
         const lastWorkout = querySnapshot.docs[0].data();
-        if (lastWorkout && lastWorkout.entries) {
-          return lastWorkout.entries;
-        }
+        if (lastWorkout && lastWorkout.entries) return lastWorkout.entries;
       }
     } catch (e) { console.warn("Firebase:", e); }
     return null;
@@ -46,8 +47,32 @@ window.startSession = async function(mode) {
   document.getElementById('loading-screen').classList.add('hidden');
   document.getElementById('exercise-card-view').classList.remove('hidden');
   
+  setupSwipeListeners();
   showExercisePreview();
 };
+
+// INICJALIZACJA OBSŁUGI DOTYKU/SWIPE
+function setupSwipeListeners() {
+  const container = document.getElementById('card-container');
+
+  container.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+  }, { passive: true });
+
+  container.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipe();
+  }, { passive: true });
+}
+
+function handleSwipe() {
+  const diffX = touchStartX - touchEndX;
+  // Przesunięcie w lewo o co najmniej 60px traktujemy jako akcję „Następna seria”
+  if (diffX > 60) {
+    const submitBtn = document.querySelector('.btn-submit');
+    if (submitBtn) submitBtn.click();
+  }
+}
 
 function showExercisePreview() {
   const list = workoutPlan[activeMode];
@@ -71,15 +96,11 @@ function showExercisePreview() {
   `;
 
   setTimeout(() => {
-    // 1. Rozgrzewka na Latzugu (Martin & Ana)
     if (currentExIndex === 0 && currentSetNumber === 1 && activeMode === 'martin_session') {
       renderWarmupCard(ex);
-    } 
-    // 2. Przypomnienie o rozgrzewce na Skosie (tylko Martin)
-    else if (ex.id === 'wyciskanie_skos' && currentSetNumber === 1 && activeMode === 'martin_session') {
+    } else if (ex.id === 'wyciskanie_skos' && currentSetNumber === 1 && activeMode === 'martin_session') {
       renderInclineWarmupCard(ex);
-    } 
-    else {
+    } else {
       renderSingleSetCard();
     }
   }, 1800);
@@ -100,12 +121,12 @@ function renderWarmupCard(ex) {
       <div style="text-align: center; margin-bottom: 16px;">
         <span style="font-size: 11px; color: var(--martin-color); font-weight: 800; letter-spacing: 1px;">ROZGRZEWKA PLECÓW 🩸</span>
         <h2 style="margin: 4px 0;">Rozgrzewka (Latzug)</h2>
-        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Wykonajcie 2 serie aktywacyjne przed seriami roboczymi</p>
+        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Wykonajcie 2 serie aktywacyjne</p>
       </div>
 
       <div class="person-box martin">
         <div class="person-title">MARTIN (Cel Roboczy: ~${lastMWeight} kg)</div>
-        <div style="font-size: 13px; margin-top: 6px; color: var(--text-main);">
+        <div style="font-size: 13px; margin-top: 6px;">
           • <strong>Seria 1 (50%):</strong> ~${m50} kg × 10-12 powt<br>
           • <strong>Seria 2 (75%):</strong> ~${m75} kg × 4-5 powt
         </div>
@@ -113,7 +134,7 @@ function renderWarmupCard(ex) {
 
       <div class="person-box ana">
         <div class="person-title">ANA (Cel Roboczy: ~${lastAWeight} kg)</div>
-        <div style="font-size: 13px; margin-top: 6px; color: var(--text-main);">
+        <div style="font-size: 13px; margin-top: 6px;">
           • <strong>Seria 1 (50%):</strong> ~${a50} kg × 10-12 powt<br>
           • <strong>Seria 2 (75%):</strong> ~${a75} kg × 4-5 powt
         </div>
@@ -122,6 +143,7 @@ function renderWarmupCard(ex) {
       <button onclick="window.finishWarmup()" class="btn-submit">
         Rozgrzani! Zaczynamy Serie Robocze →
       </button>
+      <div class="swipe-hint">👈 Przesuń w lewo, aby zatwierdzić</div>
     </div>
   `;
 }
@@ -137,20 +159,21 @@ function renderInclineWarmupCard(ex) {
 
       <div class="person-box martin">
         <div class="person-title">MARTIN</div>
-        <div style="font-size: 13px; margin-top: 6px; color: var(--text-main); line-height: 1.4;">
-          ⚠️ Pamiętaj o zrobić <strong>1-2 lekkie serie rozgrzewkowe</strong> na klatkę przed pierwszą serią roboczą, żeby oszczędzić barki i przygotować stawy!
+        <div style="font-size: 13px; margin-top: 6px; line-height: 1.4;">
+          ⚠️ Pamiętaj o zrobieniu <strong>1-2 lekkich serii rozgrzewkowych</strong> przed serią roboczą!
         </div>
       </div>
 
       <button onclick="window.finishWarmup()" class="btn-submit">
         Rozgrzany, Lecimy z Serią 1 →
       </button>
+      <div class="swipe-hint">👈 Przesuń w lewo, aby zatwierdzić</div>
     </div>
   `;
 }
 
 window.finishWarmup = function() {
-  renderSingleSetCard();
+  animateAndProceed(() => renderSingleSetCard());
 };
 
 function renderSingleSetCard() {
@@ -192,6 +215,7 @@ function renderSingleSetCard() {
       <button onclick="window.submitSet()" class="btn-submit">
         Zatwierdź Serię ${currentSetNumber} →
       </button>
+      <div class="swipe-hint">👈 Przesuń w lewo lub kliknij button</div>
     </div>
   `;
 
@@ -295,22 +319,18 @@ function getSuggestionMessage(name, reps, setNum, totalSets, exId, lastReps) {
   const thresholdIncrease = isIncline ? (reps >= 12) : (reps > 10);
 
   if (setNum === 1 && totalSets > 1) {
-    // 1. Mniej powtórzeń niż ostatnio
     if (lastReps && reps < lastReps && reps >= 6) {
       return `⏱️ <strong>${name}</strong>: Mniej powtórzeń niż ostatnio (${reps} vs ${lastReps}). <strong>Zrób dłuższą przerwę przed 2. serią</strong>.`;
     }
-    // 2. Bardzo słaba seria (< 6 powt)
     if (reps < 6) {
       return `⚠️ <strong>${name}</strong>: Mniej niż 6 powtórzeń. <strong>Zmniejsz ciężar na 2. serię!</strong>`;
     }
-    // 3. Przekroczenie progu maksymalnego (zwiększenie ciężaru)
     if (thresholdIncrease) {
       return `🚀 <strong>${name}</strong>: Kapitalny wynik (${reps} powt.)! <strong>Dołóż ciężaru na 2. serię!</strong>`;
     }
-    // 4. Progres o +1 powtórzenie (lub więcej, ale poniżej progu zmiany ciężaru)
     if (lastReps && reps > lastReps) {
       const diff = reps - lastReps;
-      return `👏 <strong>${name}</strong>: Brawo! Progres o <strong>+${diff} powt.</strong> w porównaniu do poprzedniego treningu (${reps} vs ${lastReps})!`;
+      return `👏 <strong>${name}</strong>: Brawo! Progres o <strong>+${diff} powt.</strong> w porównaniu do poprzedniego treningu!`;
     }
   } else {
     if (reps < 6) return `💡 <strong>${name}</strong>: Ciężka seria (< 6 powt). Na następnym treningu zacznij od mniejszego ciężaru.`;
@@ -341,14 +361,25 @@ function showPopupCard(messages, onConfirm) {
 }
 
 function advanceFlow(ex) {
-  if (currentSetNumber < ex.totalSets) {
-    currentSetNumber++;
-    renderSingleSetCard();
-  } else {
-    currentSetNumber = 1;
-    currentExIndex++;
-    showExercisePreview();
-  }
+  animateAndProceed(() => {
+    if (currentSetNumber < ex.totalSets) {
+      currentSetNumber++;
+      renderSingleSetCard();
+    } else {
+      currentSetNumber = 1;
+      currentExIndex++;
+      showExercisePreview();
+    }
+  });
+}
+
+function animateAndProceed(callback) {
+  const container = document.getElementById('card-container');
+  container.classList.add('swipe-left');
+  setTimeout(() => {
+    callback();
+    container.classList.remove('swipe-left');
+  }, 200);
 }
 
 function getLastRecord(exId, person) {

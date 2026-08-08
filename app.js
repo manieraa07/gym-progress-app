@@ -2,21 +2,11 @@ import { workoutPlan, initialNotes } from './data.js';
 import { db, collection, addDoc, getDocs, query, orderBy, limit } from './firebase.js';
 
 let activeMode = null;
-let currentExIndex = 0;
-let currentSetNumber = 1;
-
-let selectedRepsM = null;
-let selectedRepsA = null;
-
-let currentSessionData = {}; 
-let historyData = {}; 
+let historyData = {};
 let currentWorkoutLogs = { date: new Date().toISOString(), entries: {} };
 
+let startTime = null;
 let timerInterval = null;
-let timerSeconds = 0;
-
-let touchStartX = 0;
-let touchEndX = 0;
 
 async function loadHistoryWithTimeout() {
   const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 1500));
@@ -38,9 +28,6 @@ async function loadHistoryWithTimeout() {
 
 window.startSession = async function(mode) {
   activeMode = mode;
-  currentExIndex = 0;
-  currentSetNumber = 1;
-  currentSessionData = {};
   
   document.getElementById('mode-selection').classList.add('hidden');
   document.getElementById('loading-screen').classList.remove('hidden');
@@ -48,250 +35,136 @@ window.startSession = async function(mode) {
   await loadHistoryWithTimeout();
   
   document.getElementById('loading-screen').classList.add('hidden');
-  document.getElementById('exercise-card-view').classList.remove('hidden');
-  document.getElementById('app-header').classList.remove('hidden');
+  document.getElementById('top-nav').classList.remove('hidden');
+  document.getElementById('workout-feed').classList.remove('hidden');
+  document.getElementById('bottom-dock').classList.remove('hidden');
   
-  startTimer();
-  setupSwipeListeners();
-  renderSingleSetCard();
+  document.getElementById('nav-workout-name').innerText = (mode === 'martin_session') ? 'Martin & Ana Duo' : 'Ana Solo';
+
+  startAccurateTimer();
+  renderWorkoutFeed();
 };
 
-function startTimer() {
-  timerSeconds = 0;
+function startAccurateTimer() {
+  startTime = Date.now();
   clearInterval(timerInterval);
+  
   timerInterval = setInterval(() => {
-    timerSeconds++;
-    const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
-    const s = (timerSeconds % 60).toString().padStart(2, '0');
-    document.getElementById('workout-timer').innerText = `${m}:${s}`;
+    if (!startTime) return;
+    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+    const m = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
+    const s = (elapsedSeconds % 60).toString().padStart(2, '0');
+    
+    const timerEl = document.getElementById('session-timer');
+    if (timerEl) timerEl.innerText = `${m}:${s}`;
   }, 1000);
 }
 
-window.confirmExit = function() {
-  if (confirm("Czy na pewno chcesz zakończyć ten trening i wrócić do menu?")) {
-    location.reload();
-  }
-};
-
-function setupSwipeListeners() {
-  const container = document.getElementById('card-container');
-
-  container.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-  }, { passive: true });
-
-  container.addEventListener('touchend', (e) => {
-    touchEndX = e.changedTouches[0].screenX;
-    handleSwipe();
-  }, { passive: true });
-}
-
-function handleSwipe() {
-  const diffX = touchStartX - touchEndX;
-  if (diffX > 50) window.goNext();
-  else if (diffX < -50) window.goBack();
-}
-
-function saveCurrentStateSilently() {
+function renderWorkoutFeed() {
+  const feed = document.getElementById('workout-feed');
   const list = workoutPlan[activeMode];
-  const ex = list[currentExIndex];
-  if (!ex) return;
+  let html = '';
 
-  if (activeMode === 'martin_session') {
-    const wM = document.getElementById('martin_weight')?.value || getDefaultWeight(ex.id, 'martin');
-    const keyM = `${ex.id}_martin`;
-    const repsM = selectedRepsM || historyData[keyM]?.reps || 8;
+  list.forEach((ex, exIdx) => {
+    const imgHtml = ex.image ? `<img src="${ex.image}" alt="${ex.name}" class="exercise-thumb">` : `<div class="exercise-thumb" style="display:flex;align-items:center;justify-content:center;">🏋️</div>`;
+    
+    html += `
+      <div class="exercise-block">
+        <div class="exercise-header">
+          ${imgHtml}
+          <div class="exercise-info">
+            <h3>${ex.name}</h3>
+            <p>${ex.totalSets} serie robocze</p>
+          </div>
+        </div>
+    `;
 
-    currentSessionData[keyM] = { weight: wM, reps: repsM };
-    currentWorkoutLogs.entries[keyM] = { weight: wM, reps: repsM };
+    if (activeMode === 'martin_session') {
+      html += `<span class="person-tag martin">MARTIN</span>`;
+      html += renderSetsTable(ex, 'martin');
+    }
+
+    if (ex.isJoint || activeMode === 'ana_solo') {
+      html += `<span class="person-tag ana">ANA</span>`;
+      html += renderSetsTable(ex, 'ana');
+    }
+
+    html += `</div>`;
+  });
+
+  feed.innerHTML = html;
+  updateProgress();
+}
+
+function renderSetsTable(ex, person) {
+  let tableHtml = `
+    <table class="sets-table">
+      <thead>
+        <tr>
+          <th>Seria</th>
+          <th>Poprzednio</th>
+          <th>kg</th>
+          <th>Powt</th>
+          <th>✓</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (let s = 1; s <= ex.totalSets; s++) {
+    const historyKey = `${ex.id}_${person}`;
+    const lastRecord = historyData[historyKey] ? `${historyData[historyKey].weight}kg × ${historyData[historyKey].reps}` : (initialNotes[person]?.[ex.id] || '-');
+    const defaultWeight = historyData[historyKey]?.weight || '';
+    const defaultReps = historyData[historyKey]?.reps || '';
+
+    tableHtml += `
+      <tr class="set-row">
+        <td class="set-num">S${s}</td>
+        <td style="font-size:10px; color:var(--text-muted);">${lastRecord}</td>
+        <td><input type="number" id="w_${person}_${ex.id}_${s}" value="${defaultWeight}" class="set-input"></td>
+        <td><input type="number" id="r_${person}_${ex.id}_${s}" value="${defaultReps}" class="set-input"></td>
+        <td>
+          <button onclick="window.toggleCheck(this, '${ex.id}', '${person}', ${s})" class="btn-check-set">✓</button>
+        </td>
+      </tr>
+    `;
   }
 
-  if (ex.isJoint || activeMode === 'ana_solo') {
-    const wA = document.getElementById('ana_weight')?.value || getDefaultWeight(ex.id, 'ana');
-    const keyA = `${ex.id}_ana`;
-    const repsA = selectedRepsA || historyData[keyA]?.reps || 8;
+  tableHtml += `</tbody></table>`;
+  return tableHtml;
+}
 
-    currentSessionData[keyA] = { weight: wA, reps: repsA };
-    currentWorkoutLogs.entries[keyA] = { weight: wA, reps: repsA };
-  }
+window.toggleCheck = function(btn, exId, person, setNum) {
+  btn.classList.toggle('checked');
+  
+  const weightVal = document.getElementById(`w_${person}_${exId}_${setNum}`)?.value || 0;
+  const repsVal = document.getElementById(`r_${person}_${exId}_${setNum}`)?.value || 0;
+  
+  const key = `${exId}_${person}`;
+  currentWorkoutLogs.entries[key] = { weight: weightVal, reps: repsVal };
 
+  // Cichy zapis w tle do Firebase
   addDoc(collection(db, "workouts"), {
     ...currentWorkoutLogs,
     date: new Date().toISOString()
-  }).catch(e => console.error("Firebase err: ", e));
-}
+  }).catch(e => console.error("Firebase err:", e));
 
-window.goNext = function() {
-  saveCurrentStateSilently();
-  const list = workoutPlan[activeMode];
-  const ex = list[currentExIndex];
-
-  animateAndProceed(() => {
-    if (currentSetNumber < ex.totalSets) {
-      currentSetNumber++;
-      renderSingleSetCard();
-    } else if (currentExIndex < list.length - 1) {
-      currentSetNumber = 1;
-      currentExIndex++;
-      renderSingleSetCard();
-    } else {
-      renderCompletionScreen();
-    }
-  }, 'left');
+  updateProgress();
 };
 
-window.goBack = function() {
-  saveCurrentStateSilently();
-  const list = workoutPlan[activeMode];
+function updateProgress() {
+  const totalChecks = document.querySelectorAll('.btn-check-set').length;
+  const checkedCount = document.querySelectorAll('.btn-check-set.checked').length;
   
-  if (currentSetNumber > 1) {
-    currentSetNumber--;
-    animateAndProceed(() => renderSingleSetCard(), 'right');
-  } else if (currentExIndex > 0) {
-    currentExIndex--;
-    const prevEx = list[currentExIndex];
-    currentSetNumber = prevEx.totalSets;
-    animateAndProceed(() => renderSingleSetCard(), 'right');
+  const percent = totalChecks > 0 ? (checkedCount / totalChecks) * 100 : 0;
+  document.getElementById('dock-progress-bar').style.width = `${percent}%`;
+  document.getElementById('dock-status-text').innerText = `Ukończono ${checkedCount} z ${totalChecks} serii`;
+}
+
+window.finishWorkout = function() {
+  if (confirm("Czy na pewno chcesz zakończyć i zapisać ten trening?")) {
+    clearInterval(timerInterval);
+    alert("Trening został pomyślnie zapisany!");
+    location.reload();
   }
 };
-
-function renderSingleSetCard() {
-  const list = workoutPlan[activeMode];
-  const ex = list[currentExIndex];
-  const container = document.getElementById('card-container');
-
-  if (!ex) {
-    renderCompletionScreen();
-    return;
-  }
-
-  document.getElementById('header-ex-name').innerText = ex.name.split('.')[1] || ex.name;
-  document.getElementById('header-set-counter').innerText = `SERIA ${currentSetNumber}/${ex.totalSets}`;
-
-  const progressPercent = ((currentExIndex) / list.length) * 100;
-  document.getElementById('progress-fill').style.width = `${progressPercent}%`;
-
-  selectedRepsM = currentSessionData[`${ex.id}_martin`]?.reps || null;
-  selectedRepsA = currentSessionData[`${ex.id}_ana`]?.reps || null;
-
-  const imgHtml = ex.image ? `<img src="${ex.image}" alt="${ex.name}" class="preview-img">` : '';
-
-  let html = `
-    <div class="card">
-      ${imgHtml}
-      <h2 style="margin: 0 0 12px 0; font-size: 18px;">${ex.name}</h2>
-  `;
-
-  if (activeMode === 'martin_session') {
-    const lastM = getLastRecord(ex.id, 'martin');
-    const defaultW = getDefaultWeight(ex.id, 'martin');
-    html += renderPersonSection('martin', 'MARTIN', lastM, defaultW);
-  }
-
-  if (ex.isJoint || activeMode === 'ana_solo') {
-    const lastA = getLastRecord(ex.id, 'ana');
-    const defaultW = getDefaultWeight(ex.id, 'ana');
-    html += renderPersonSection('ana', 'ANA', lastA, defaultW);
-  }
-
-  html += `
-      <button onclick="window.goNext()" class="btn-submit">
-        Dalej (Seria ${currentSetNumber}) →
-      </button>
-      <div class="swipe-hint">👈 Przesuń w lewo | 👉 Przesuń w prawo</div>
-    </div>
-  `;
-
-  container.innerHTML = html;
-
-  if (selectedRepsM) highlightRep('martin', selectedRepsM);
-  if (selectedRepsA) highlightRep('ana', selectedRepsA);
-}
-
-function renderPersonSection(personCode, personName, lastText, defaultWeight) {
-  let repsButtons = '';
-  for (let i = 1; i <= 12; i++) {
-    const val = i === 12 ? '12+' : i;
-    const numVal = i === 12 ? 12 : i;
-    repsButtons += `<button type="button" onclick="window.selectRep('${personCode}', ${numVal}, this)" class="rep-btn rep-btn-${personCode}" id="btn-${personCode}-${numVal}">${val}</button>`;
-  }
-
-  return `
-    <div class="person-box ${personCode}">
-      <div class="person-header">
-        <span class="person-title">${personName}</span>
-        <span class="history-badge">Ostatnio: ${lastText}</span>
-      </div>
-      
-      <div class="input-group">
-        <label class="input-label">Ciężar Roboczy</label>
-        <div><input type="number" id="${personCode}_weight" value="${defaultWeight}" class="weight-input"> <span style="font-size:12px; font-weight:700;">kg</span></div>
-      </div>
-
-      <div>
-        <label class="input-label" style="margin-bottom:6px; display:block;">Powtórzenia</label>
-        <div class="reps-grid">
-          ${repsButtons}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-window.selectRep = function(person, val, btn) {
-  if (person === 'martin') selectedRepsM = val;
-  if (person === 'ana') selectedRepsA = val;
-
-  document.querySelectorAll(`.rep-btn-${person}`).forEach(b => {
-    b.classList.remove('selected-martin', 'selected-ana');
-  });
-
-  btn.classList.add(person === 'martin' ? 'selected-martin' : 'selected-ana');
-};
-
-function highlightRep(person, val) {
-  const btn = document.getElementById(`btn-${person}-${val}`);
-  if (btn) btn.classList.add(person === 'martin' ? 'selected-martin' : 'selected-ana');
-}
-
-function animateAndProceed(callback, direction = 'left') {
-  const container = document.getElementById('card-container');
-  const className = direction === 'left' ? 'swipe-left' : 'swipe-right';
-  
-  container.classList.add(className);
-  setTimeout(() => {
-    callback();
-    container.classList.remove(className);
-  }, 150);
-}
-
-function getLastRecord(exId, person) {
-  const key = `${exId}_${person}`;
-  if (currentSetNumber === 2 && currentSessionData[key]) {
-    return `${currentSessionData[key].weight} kg × ${currentSessionData[key].reps} (Seria 1)`;
-  }
-  if (historyData[key]) {
-    return `${historyData[key].weight} kg × ${historyData[key].reps}`;
-  }
-  return initialNotes[person]?.[exId] || 'brak';
-}
-
-function getDefaultWeight(exId, person) {
-  const key = `${exId}_${person}`;
-  if (currentSessionData[key]) return currentSessionData[key].weight;
-  return historyData[key]?.weight || '';
-}
-
-function renderCompletionScreen() {
-  clearInterval(timerInterval);
-  document.getElementById('progress-fill').style.width = `100%`;
-  const container = document.getElementById('card-container');
-  container.innerHTML = `
-    <div class="card" style="text-align: center; padding: 40px 16px;">
-      <span style="font-size: 50px; display: block; margin-bottom: 8px;">🔥</span>
-      <h2>Trening Zakończony!</h2>
-      <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 24px;">Czas sesji: ${document.getElementById('workout-timer').innerText}</p>
-      <button onclick="location.reload()" class="btn-submit">Wróć do Menu</button>
-    </div>
-  `;
-}

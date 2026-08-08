@@ -1,170 +1,37 @@
-import { workoutPlan, initialNotes } from './data.js';
-import { db, collection, addDoc, getDocs, query, orderBy, limit } from './firebase.js';
+import {EX,P,TOGETHER1,SPLIT,TOGETHER2,NUTRITION,NAMES} from './data.js';
 
-let activeMode = null;
-let historyData = {};
-let currentWorkoutLogs = { date: new Date().toISOString(), entries: {} };
-
-let startTime = null;
-let timerInterval = null;
-
-async function loadHistoryWithTimeout() {
-  const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 1500));
-  const fetchPromise = (async () => {
-    try {
-      const q = query(collection(db, "workouts"), orderBy("date", "desc"), limit(1));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const lastWorkout = querySnapshot.docs[0].data();
-        if (lastWorkout && lastWorkout.entries) return lastWorkout.entries;
-      }
-    } catch (e) { console.warn("Firebase:", e); }
-    return null;
-  })();
-
-  const result = await Promise.race([fetchPromise, timeoutPromise]);
-  if (result && result !== 'timeout') historyData = result;
-}
-
-window.startSession = async function(mode) {
-  activeMode = mode;
-  
-  document.getElementById('mode-selection').classList.add('hidden');
-  document.getElementById('loading-screen').classList.remove('hidden');
-  
-  await loadHistoryWithTimeout();
-  
-  document.getElementById('loading-screen').classList.add('hidden');
-  document.getElementById('top-nav').classList.remove('hidden');
-  document.getElementById('workout-feed').classList.remove('hidden');
-  document.getElementById('bottom-dock').classList.remove('hidden');
-  
-  document.getElementById('nav-workout-name').innerText = (mode === 'martin_session') ? 'Martin & Ana Duo' : 'Ana Solo';
-
-  startAccurateTimer();
-  renderWorkoutFeed();
-};
-
-function startAccurateTimer() {
-  startTime = Date.now();
-  clearInterval(timerInterval);
-  
-  timerInterval = setInterval(() => {
-    if (!startTime) return;
-    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-    const m = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
-    const s = (elapsedSeconds % 60).toString().padStart(2, '0');
-    
-    const timerEl = document.getElementById('session-timer');
-    if (timerEl) timerEl.innerText = `${m}:${s}`;
-  }, 1000);
-}
-
-function renderWorkoutFeed() {
-  const feed = document.getElementById('workout-feed');
-  const list = workoutPlan[activeMode];
-  let html = '';
-
-  list.forEach((ex, exIdx) => {
-    const imgHtml = ex.image ? `<img src="${ex.image}" alt="${ex.name}" class="exercise-thumb">` : `<div class="exercise-thumb" style="display:flex;align-items:center;justify-content:center;">🏋️</div>`;
-    
-    html += `
-      <div class="exercise-block">
-        <div class="exercise-header">
-          ${imgHtml}
-          <div class="exercise-info">
-            <h3>${ex.name}</h3>
-            <p>${ex.totalSets} serie robocze</p>
-          </div>
-        </div>
-    `;
-
-    if (activeMode === 'martin_session') {
-      html += `<span class="person-tag martin">MARTIN</span>`;
-      html += renderSetsTable(ex, 'martin');
-    }
-
-    if (ex.isJoint || activeMode === 'ana_solo') {
-      html += `<span class="person-tag ana">ANA</span>`;
-      html += renderSetsTable(ex, 'ana');
-    }
-
-    html += `</div>`;
-  });
-
-  feed.innerHTML = html;
-  updateProgress();
-}
-
-function renderSetsTable(ex, person) {
-  let tableHtml = `
-    <table class="sets-table">
-      <thead>
-        <tr>
-          <th>Seria</th>
-          <th>Poprzednio</th>
-          <th>kg</th>
-          <th>Powt</th>
-          <th>✓</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-
-  for (let s = 1; s <= ex.totalSets; s++) {
-    const historyKey = `${ex.id}_${person}`;
-    const lastRecord = historyData[historyKey] ? `${historyData[historyKey].weight}kg × ${historyData[historyKey].reps}` : (initialNotes[person]?.[ex.id] || '-');
-    const defaultWeight = historyData[historyKey]?.weight || '';
-    const defaultReps = historyData[historyKey]?.reps || '';
-
-    tableHtml += `
-      <tr class="set-row">
-        <td class="set-num">S${s}</td>
-        <td style="font-size:10px; color:var(--text-muted);">${lastRecord}</td>
-        <td><input type="number" id="w_${person}_${ex.id}_${s}" value="${defaultWeight}" class="set-input"></td>
-        <td><input type="number" id="r_${person}_${ex.id}_${s}" value="${defaultReps}" class="set-input"></td>
-        <td>
-          <button onclick="window.toggleCheck(this, '${ex.id}', '${person}', ${s})" class="btn-check-set">✓</button>
-        </td>
-      </tr>
-    `;
-  }
-
-  tableHtml += `</tbody></table>`;
-  return tableHtml;
-}
-
-window.toggleCheck = function(btn, exId, person, setNum) {
-  btn.classList.toggle('checked');
-  
-  const weightVal = document.getElementById(`w_${person}_${exId}_${setNum}`)?.value || 0;
-  const repsVal = document.getElementById(`r_${person}_${exId}_${setNum}`)?.value || 0;
-  
-  const key = `${exId}_${person}`;
-  currentWorkoutLogs.entries[key] = { weight: weightVal, reps: repsVal };
-
-  // Cichy zapis w tle do Firebase
-  addDoc(collection(db, "workouts"), {
-    ...currentWorkoutLogs,
-    date: new Date().toISOString()
-  }).catch(e => console.error("Firebase err:", e));
-
-  updateProgress();
-};
-
-function updateProgress() {
-  const totalChecks = document.querySelectorAll('.btn-check-set').length;
-  const checkedCount = document.querySelectorAll('.btn-check-set.checked').length;
-  
-  const percent = totalChecks > 0 ? (checkedCount / totalChecks) * 100 : 0;
-  document.getElementById('dock-progress-bar').style.width = `${percent}%`;
-  document.getElementById('dock-status-text').innerText = `Ukończono ${checkedCount} z ${totalChecks} serii`;
-}
-
-window.finishWorkout = function() {
-  if (confirm("Czy na pewno chcesz zakończyć i zapisać ten trening?")) {
-    clearInterval(timerInterval);
-    alert("Trening został pomyślnie zapisany!");
-    location.reload();
-  }
-};
+const KEY='duolane.sessions.v1', LIVE='duolane.live.v1';
+const state={route:'home',person:'martin',session:null,rest:null,shakeRange:[900,1000],body:[]};
+const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
+const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}, save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+const sessions=()=>load(KEY,[]), vol=s=>+s.kg*+s.reps||0, fmt=v=>v>=1000?(v/1000).toFixed(1)+' t':Math.round(v)+' kg', date=d=>new Date(d).toLocaleDateString('pl-PL',{day:'numeric',month:'short'});
+const prev=(id,p,n)=>{for(const x of [...sessions()].reverse()){const r=x.sets?.find(s=>s.ex===id&&s.person===p&&s.set===n);if(r)return r}return null};
+const best=(id,p)=>{let b; sessions().forEach(x=>x.sets?.forEach(s=>{if(s.ex===id&&s.person===p&&(!b||+s.kg*(1+s.reps/30)>+b.kg*(1+b.reps/30)))b=s}));return b};
+function toast(t){const e=document.createElement('div');e.className='toast';e.textContent=t;document.body.append(e);setTimeout(()=>e.remove(),1800)}
+function nav(route){state.route=route;render()}
+function tabs(){return `<div class="tabs"><div class="tabs-in"><button class="tab" data-nav="home"><i>🏋️</i>TRENING</button><button class="tab" data-nav="stats"><i>📈</i>STATY</button><button class="tab" data-nav="martin"><i>⚡</i>MARTIN</button></div></div>`}
+function home(){const all=sessions(),live=load(LIVE,null);return `<main class="page"><div class="hero"><span class="eyebrow">Duo Lane</span><h1>Dwie ścieżki,<em>jeden dziennik.</em></h1></div><div class="kpis"><div class="kpi"><b>${all.length}</b><span>treningów</span></div><div class="kpi"><b>${all.length?all.reduce((a,x)=>a+x.sets.length,0):'—'}</b><span>serii</span></div><div class="kpi"><b>${all.length?date(all.at(-1).date):'—'}</b><span>ostatni</span></div></div>${live?`<button class="card live" data-action="resume"><span class="eyebrow">Sesja zapisana</span><h2>Wróć do treningu</h2><p>${live.log.length} zapisanych serii</p></button>`:''}<span class="eyebrow">Zacznij sesję</span><div style="height:10px"></div><button class="card duo" data-action="duo"><span class="eyebrow">Razem → osobno → razem</span><h2>Martin &amp; Ana</h2><p>Plecy razem, osobne ćwiczenia, triceps i biceps razem.</p><div class="meta"><span>HIT · 2 serie RIR 0–1</span><b>Start →</b></div></button><button class="card solo" data-action="solo"><span class="eyebrow">Solo</span><h2>Ana — dół</h2><p>Suwnica, dwugłowy, abduktor, łydki.</p><div class="meta"><span>4 ćwiczenia</span><b>Start →</b></div></button><div class="section-title"><h2>Historia</h2></div><div class="panel">${all.length?[...all].reverse().slice(0,5).map(x=>`<div class="lrow"><span class="dot" style="background:${x.solo?'var(--a)':'linear-gradient'}"></span><div><div>${x.solo?'Ana — dół':'Martin & Ana'}</div><div class="s">${date(x.date)} · ${x.sets.length} serii</div></div></div>`).join(''):'<div class="empty"><b>Historia jest pusta</b>Pierwszy trening zapisze się tutaj.</div>'}</div></main>${tabs()}`}
+function queue(s){const q=[],add=(ids,ps,phase)=>ids.forEach(id=>{for(let n=1;n<=EX[id].sets;n++)ps.forEach((p,i)=>q.push({ex:id,person:p,set:n,phase,rest:i===ps.length-1}))});if(s.solo){add(SPLIT.ana,['ana'],'solo');return q}add(TOGETHER1,['martin','ana'],'together');q.push({gate:'split'});if(!s.who)return q;add(SPLIT[s.who],[s.who],'split');q.push({gate:'back'});if(s.reunited===null)return q;add(TOGETHER2,s.reunited?['martin','ana']:[s.who],'together');return q}
+function newSession(solo){state.session={id:Date.now(),date:new Date().toISOString(),start:Date.now(),solo,who:solo?'ana':null,reunited:solo?false:null,i:0,log:[],draft:null,tip:null};save(LIVE,state.session);state.route='run';render()}
+function pips(q){return q.map((x,i)=>x.gate?'<span class="pip gap"></span>`':`<span class="pip ${i<state.session.i?'done':i===state.session.i?'now':''}"></span>`).join('')}
+function runner(){const s=state.session,q=queue(s),cur=q[s.i];if(!cur)return `<div class="run"><div class="stage"><h1>Plan wykonany.</h1><p>${s.log.length} serii zapisanych.</p><button class="btn" data-action="finish">Zapisz trening</button></div></div>`;if(cur.gate)return gate(cur.gate,q);const x=EX[cur.ex],p=P[cur.person],pr=prev(cur.ex,cur.person,cur.set),b=best(cur.ex,cur.person),tip=s.tip;return `<div class="run"><header class="run-top"><div class="run-top-in"><button class="ibtn" data-action="abort">×</button><div class="run-ttl"><span class="eyebrow">${cur.phase==='split'?'Osobno':'Razem'} · ${p.name}</span><h2>${x.n} · seria ${cur.set}/${x.sets}</h2></div><div class="clk">${Math.floor((Date.now()-s.start)/60000)}:${String(Math.floor((Date.now()-s.start)/1000)%60).padStart(2,'0')}</div></div><div class="pips">${pips(q)}</div></header><div class="run-body"><div class="stage"><span class="band ${p.k}">${p.name.toUpperCase()} · SERIA ${cur.set}</span><h1 class="exname">${x.n}</h1><div class="chips"><span class="chip">${x.sub}</span><span class="chip">CEL 6–${x.tech?12:10} · RIR 0–1</span></div><div class="dials"><dial-box class="dial ${p.k}" title="Ciężar" id="kg" value="${s.draft?.kg??''}" placeholder="${pr?.kg??0}" unit="KG"></dial-box><dial-box class="dial ${p.k}" title="Powtórzenia" id="reps" value="${s.draft?.reps??''}" placeholder="${pr?.reps??0}" unit="POWT."></dial-box></div><div class="refs">${pr?`<button data-use="prev"><span class="eyebrow">Ostatnio</span><b>${pr.kg} × ${pr.reps}</b></button>`:'<div><span class="eyebrow">Ostatnio</span><span>brak danych</span></div>'}${b?`<div><span class="eyebrow">Rekord</span><b>${b.kg} × ${b.reps}</b></div>`:''}</div>${tip?`<div class="coach ${tip.type}"><i>${tip.icon}</i><div><b>${tip.title}</b><span>${tip.text}</span></div></div>`:''}</div></div><footer class="run-foot"><div class="run-foot-in"><button class="skip" data-action="skip">POMIŃ</button><button class="btn ${p.k}" data-action="save">Zapisz serię ${p.name}a</button></div></footer></div>`}
+class DialBox extends HTMLElement{connectedCallback(){this.innerHTML=`<span class="eyebrow">${this.getAttribute('title')}</span><div class="face"><input id="f-${this.id}" inputmode="decimal" value="${this.getAttribute('value')}" placeholder="${this.getAttribute('placeholder')}"></div><div class="unit">${this.getAttribute('unit')}</div><div class="ruler"><i></i><b></b></div><div class="dialbtn"><button data-dial="${this.id}|-1">−</button><button data-dial="${this.id}|1">+</button></div>`}}
+customElements.define('dial-box',DialBox);
+function gate(kind,q){return `<div class="run"><header class="run-top"><div class="run-top-in"><button class="ibtn" data-action="abort">×</button><div class="run-ttl"><span class="eyebrow">Sesja w toku</span><h2>Martin &amp; Ana</h2></div></div><div class="pips">${pips(q)}</div></header><div class="run-body"><div class="stage"><span class="eyebrow">${kind==='split'?'Rozdzielacie się':'Blok osobny za Wami'}</span><h1 class="exname">${kind==='split'?'Kto trzyma ten telefon?':'Wracacie razem?'}</h1><p style="color:var(--dim)">${kind==='split'?'Ana odpala apkę na swoim telefonie i wybiera siebie.':'Zostały triceps, biceps i wznosy.'}</p><div class="forks">${kind==='split'?`<button class="fork m" data-who="martin"><b>Martin</b><span>skos · bary · rozpiętki</span></button><button class="fork a" data-who="ana"><b>Ana</b><span>4 ćwiczenia nóg</span></button>`:`<button class="fork m" data-reunite="1"><b>Razem</b><span>notuję oboje</span></button><button class="fork a" data-reunite="0"><b>Osobno</b><span>tylko ${P[state.session.who].name}</span></button>`}</div></div></div><footer class="run-foot"><div class="run-foot-in"><button class="btn ghost" data-action="finish">Zakończ trening</button></div></footer></div>`}
+function suggestion(cur,r,s){const x=EX[cur.ex],previous=s.log.find(v=>v.ex===cur.ex&&v.person===cur.person&&v.set===cur.set-1);if(previous&&previous.reps-r.reps>=3)return{type:'warn',icon:'🫁',title:'Spadek siły',text:'Weź 3 minuty przerwy zamiast dwóch.'};if(r.reps<6)return{type:'warn',icon:'⬇',title:'Za ciężko',text:cur.set<x.sets?'Zejdź o jeden przeskok w następnej serii.':'Następnym razem zacznij od jednego przeskoku niżej.'};if(r.reps>(x.tech?12:10))return{type:'up',icon:'⬆',title:x.tech?'Dodaj 2,5 kg':'Za lekko',text:x.tech?'Następnym razem zwiększ o 2,5 kg.':cur.set<x.sets?'Podbij o jeden przeskok w następnej serii.':'Od następnego treningu wejdź jeden przeskok wyżej.'};return null}
+function saveSet(){const s=state.session,q=queue(s),cur=q[s.i],kg=+$('#f-kg')?.value,reps=+$('#f-reps')?.value;if(!kg||!reps)return toast('Wpisz ciężar i powtórzenia');const r={ex:cur.ex,person:cur.person,set:cur.set,kg,reps};const b=best(cur.ex,cur.person);const pr=!b||kg*(1+reps/30)>b.kg*(1+b.reps/30);s.log.push(r);s.i++;s.draft=null;s.tip=suggestion(cur,r,s);save(LIVE,s);if(!cur.rest&&queue(s)[s.i])return handoff(queue(s)[s.i],s.tip,pr);render();if(s.tip)rest(s.tip,queue(s)[s.i])}
+function handoff(next,tip,pr){layer.innerHTML=`<div class="veil"><div class="veil-in"><span class="hand">ZMIANA NA MASZYNIE</span><h2>${P[next.person].name} wchodzi</h2><p>Przerwa zacznie się dopiero po tej samej serii u obu osób.</p>${tip?`<div class="coach ${tip.type}"><i>${tip.icon}</i><div><b>${tip.title}</b><span>${tip.text}</span></div></div>`:''}${pr?'<div class="coach pr"><i>★</i><div><b>Nowy rekord</b><span>Najlepszy wynik w tym ćwiczeniu.</span></div></div>':''}<button class="vbtn wide" data-close>Gotowe, wpisuję ${P[next.person].name}a</button></div></div>`}
+function rest(tip,next){let left=(tip?.type==='warn'?180:120),end=Date.now()+left*1000;state.session.restEnd=end;save(LIVE,state.session);layer.innerHTML=`<div class="veil"><div class="veil-in"><span class="hand">${left===180?'DŁUŻSZA PRZERWA':'PRZERWA'}</span><div class="ring"><svg width="168" height="168"><circle cx="84" cy="84" r="74" stroke="var(--s3)" stroke-width="8" fill="none"/><circle id="ring" cx="84" cy="84" r="74" stroke="${left===180?'var(--warn)':'var(--ok)'}" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="465"/></svg><b id="timer">2:00</b></div><h2>Następnie</h2><p>${next&&!next.gate?P[next.person].name+' · '+EX[next.ex].n:'kolejna seria'}</p><div class="veilbuttons"><button class="vbtn" data-add="30">+30 S</button><button class="vbtn" data-close>POMIŃ</button></div></div></div>`;clearInterval(state.rest);state.rest=setInterval(()=>{left=Math.max(0,Math.ceil((end-Date.now())/1000));const e=$('#timer');if(!e)return; e.textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');if(!left){clearInterval(state.rest);layer.innerHTML='';state.session.restEnd=null;save(LIVE,state.session);render()}},250)}
+function closeLayer(){clearInterval(state.rest);layer.innerHTML='';if(state.session){state.session.restEnd=null;save(LIVE,state.session)}render()}
+function finish(){const s=state.session;if(!s.log.length)return nav('home');const rec={date:s.date,duration:Math.floor((Date.now()-s.start)/1000),solo:s.solo,sets:s.log};save(KEY,[...sessions(),rec]);localStorage.removeItem(LIVE);state.session=null;state.route='home';render();toast('Trening zapisany')}
+function stats(){const all=sessions();if(!all.length)return `<main class="page"><div class="hero"><span class="eyebrow">Statystyki</span><h1>Jeszcze nic tu nie ma.</h1></div><div class="empty"><b>Pierwszy trening zbuduje historię</b>Nie pokazuję sztucznych danych.</div></main>${tabs()}`;const p=state.person,ms=all.filter(s=>s.sets.some(x=>x.person===p)),ids=[...new Set(ms.flatMap(s=>s.sets.filter(x=>x.person===p).map(x=>x.ex)))];return `<main class="page"><div class="hero"><span class="eyebrow">Statystyki</span><h1>Progres, nie popis.</h1></div><div class="seg"><button class="pill ${p==='martin'?'active':''}" data-person="martin">MARTIN</button><button class="pill ${p==='ana'?'active':''}" data-person="ana">ANA</button></div><div class="grid2"><div class="tile"><b>${ms.length}</b><span>treningów</span></div><div class="tile"><b>${ms.reduce((a,s)=>a+s.sets.length,0)}</b><span>serii</span></div><div class="tile"><b>${ids.length}</b><span>ćwiczeń</span></div><div class="tile"><b>${ms.reduce((a,s)=>a+s.sets.filter(x=>x.person===p).length,0)}</b><span>serii ${P[p].name}</span></div></div><div class="panel"><h3>Top sety i rekordy</h3>${ids.map(id=>{const b=best(id,p);return `<div class="lrow"><span class="dot" style="background:${p==='martin'?'var(--m)':'var(--a)'}"></span><div><div>${EX[id].n}</div><div class="s">ostatnio / najlepszy wynik</div></div><div class="v">${b?b.kg+' × '+b.reps:'—'}</div></div>`}).join('')}</div></main>${tabs()}`}
+function martin(){const weights=load('duolane.weights',[]),notes=load('duolane.notes','');return `<main class="page"><div class="hero"><span class="eyebrow">Strefa Martina</span><h1>Masowanie,<em>po swojemu.</em></h1></div><div class="panel"><h3>Masa ciała</h3><div class="row-in"><input id="weight" class="mono" inputmode="decimal" placeholder="kg"><button class="btn m" data-weight>Zapisz</button></div>${weights.length?`<div class="chart">${weights.slice(-12).map(x=>`<div class="bar" style="height:${Math.max(8,(x.value-Math.min(...weights.map(y=>y.value))+1)/(Math.max(...weights.map(y=>y.value))-Math.min(...weights.map(y=>y.value))+1)*90)}px"><small>${x.value}</small></div>`).join('')}</div>`:'<div class="empty">Dodaj pierwszy pomiar.</div>'}</div><div class="panel"><h3>Notatki masy</h3><textarea id="notes" placeholder="Samopoczucie, apetyt, pomiary…">${esc(notes)}</textarea><button class="btn ghost" data-notes style="margin-top:10px">Zapisz notatkę</button></div>${shake()}</main>${tabs()}`}
+function shake(){const [lo,hi]=state.shakeRange,target=(lo+hi)/2,n=NUTRITION,base=n.protein.kcal+n.banana.kcal+n.milk.kcal,grams=Math.max(0,(target-base)/(n.peanut.kcal/100)),scale=grams/100,items=[n.protein,n.banana,n.milk,{...n.peanut,g:grams,kcal:n.peanut.kcal*scale,p:n.peanut.p*scale,c:n.peanut.c*scale,f:n.peanut.f*scale,fiber:n.peanut.fiber*scale}],total=items.reduce((a,x)=>a+x.kcal,0),mac={p:items.reduce((a,x)=>a+x.p,0),c:items.reduce((a,x)=>a+x.c,0),f:items.reduce((a,x)=>a+x.f,0),fiber:items.reduce((a,x)=>a+x.fiber,0)};return `<div class="section-title"><h2>Shake na masę</h2></div><div class="panel shake-result"><span class="eyebrow">Wybierz cel</span><div class="pillrow">${[[900,1000],[1000,1100],[1100,1200]].map(r=>`<button class="pill ${r[0]===lo?'active':''}" data-range="${r[0]}|${r[1]}">${r[0]}–${r[1]} KCAL</button>`).join('')}</div><div class="kcal-big">${Math.round(total)} kcal</div><div class="subk">cel ${lo}–${hi} · punkt docelowy ${target} kcal</div><div class="recipe">🥛<div class="nm">${n.milk.name}<small>stała ilość</small></div><div class="amt">250 ml</div></div><div class="recipe">🍌<div class="nm">${n.banana.name}<small>stała ilość</small></div><div class="amt">1 szt.</div></div><div class="recipe">🥤<div class="nm">${n.protein.name}<small>stała porcja</small></div><div class="amt">30 g</div></div><div class="recipe key">🥜<div class="nm">${n.peanut.name}<small>dobrane do celu</small></div><div class="amt">${Math.round(grams)} g</div></div><div class="macro"><div><b>${Math.round(mac.p)} g</b><span>białko</span></div><div><b>${Math.round(mac.c)} g</b><span>węgle</span></div><div><b>${Math.round(mac.f)} g</b><span>tłuszcz</span></div><div><b>${Math.round(mac.fiber)} g</b><span>błonnik</span></div></div><button class="disclosure" data-nutrients>Witaminy i minerały <b>＋</b></button><div id="nutrients" class="hide">${nutrientRows(items)}</div><p class="note">Wartości są orientacyjne. Dane białka i mleka możesz później dopasować do etykiety.</p></div>`}
+function nutrientRows(items){const v={},m={};items.forEach(x=>{Object.entries(x.vit||{}).forEach(([k,n])=>v[k]=(v[k]||0)+n);Object.entries(x.min||{}).forEach(([k,n])=>m[k]=(m[k]||0)+n)});return `<div class="panel">${Object.entries({...v,...m}).map(([k,x])=>`<div class="nut"><span class="k">${NAMES[k]||k}</span><span class="v">${x.toFixed(x<10?1:0)} ${['A','D','E','K','B9','B12','Se'].includes(k)?'µg':'mg'}</span><span class="p">szac.</span></div>`).join('')}</div>`}
+function render(){if(state.route==='run'){document.body.innerHTML='<div id="app"></div><div id="layer"></div>';customElements.define;$('#app').innerHTML=runner();return}$('#app').innerHTML=state.route==='stats'?stats():state.route==='martin'?martin():home()}
+let hold;
+document.addEventListener('click',e=>{const t=e.target.closest('[data-action],[data-nav],[data-who],[data-reunite],[data-close],[data-add],[data-dial],[data-use],[data-person],[data-range],[data-nutrients],[data-weight],[data-notes]');if(!t)return;const d=t.dataset;if(d.nav)return nav(d.nav);if(d.action==='duo')return newSession(false);if(d.action==='solo')return newSession(true);if(d.action==='resume'){state.session=load(LIVE,null);return nav('run')}if(d.action==='save')return saveSet();if(d.action==='finish')return finish();if(d.action==='abort'){if(confirm('Wyjść bez zapisu?')){localStorage.removeItem(LIVE);state.session=null;nav('home')}return}if(d.action==='skip'){state.session.i++;state.session.draft=null;save(LIVE,state.session);return render()}if(d.who){state.session.who=d.who;state.session.i++;save(LIVE,state.session);return render()}if(d.reunite!==undefined){state.session.reunited=d.reunite==='1';state.session.i++;save(LIVE,state.session);return render()}if(d.close)return closeLayer();if(d.add){if(window._restEnd)window._restEnd+=+d.add*1000;return}if(d.dial){const [which,dir]=d.dial.split('|');const el=$('#f-'+which);el.value=Math.max(0,(+el.value||0)+(+dir));state.session.draft={kg:$('#f-kg')?.value,reps:$('#f-reps')?.value};save(LIVE,state.session);return}if(d.use){const q=queue(state.session),c=q[state.session.i],x=prev(c.ex,c.person,c.set);if(x){$('#f-kg').value=x.kg;$('#f-reps').value=x.reps;state.session.draft={kg:x.kg,reps:x.reps};save(LIVE,state.session)}return}if(d.person){state.person=d.person;return render()}if(d.range){state.shakeRange=d.range.split('|').map(Number);return render()}if(d.nutrients){$('#nutrients')?.classList.toggle('hide');return}if(d.weight){const v=+$('#weight').value;if(v){const a=load('duolane.weights',[]);a.push({date:new Date().toISOString(),value:v});save('duolane.weights',a);toast('Zapisano masę');render()}return}if(d.notes){save('duolane.notes',$('#notes').value);toast('Zapisano notatkę')}});
+document.addEventListener('input',e=>{if(e.target.id==='f-kg'||e.target.id==='f-reps'){state.session.draft={kg:$('#f-kg').value,reps:$('#f-reps').value};save(LIVE,state.session)}});
+document.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-dial]');if(!b)return;const [which,dir]=b.dataset.dial.split('|');hold=setInterval(()=>{const el=$('#f-'+which);el.value=Math.max(0,(+el.value||0)+(+dir));},110)});['pointerup','pointercancel','pointerleave'].forEach(x=>document.addEventListener(x,()=>clearInterval(hold)));
+window.addEventListener('pageshow',()=>{const s=load(LIVE,null);if(s?.restEnd&&s.restEnd>Date.now())rest(null,queue(s)[s.i]);else if(s?.restEnd&&s.restEnd<=Date.now()){s.restEnd=null;save(LIVE,s)}});
+render();

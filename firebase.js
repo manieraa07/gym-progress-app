@@ -1,9 +1,10 @@
-// firebase.js — jedno miejsce z konfiguracją i dostępem do Firestore
+/* firebase.js — Firestore + warstwa danych.
+   Kluczowa zasada: JEDEN dokument treningu na dzień, oba telefony piszą do niego. */
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
-  getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, deleteDoc,
-  query, orderBy, limit, onSnapshot, serverTimestamp,
-  enableIndexedDbPersistence
+  getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
+  query, orderBy, limit, onSnapshot, enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -18,56 +19,44 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+try { enableIndexedDbPersistence(db).catch(() => {}); } catch (e) {}
 
-// offline first: telefon w piwnicy siłowni dalej zapisuje
-try { enableIndexedDbPersistence(db).catch(()=>{}); } catch(e){}
+const DAYS = 'days';      // trening dnia, id = 2026-08-08
+const BODY = 'body';      // masa ciała
+const CFG  = 'config';    // ustawienia shake'a
 
-export {
-  collection, doc, addDoc, setDoc, getDoc, getDocs, deleteDoc,
-  query, orderBy, limit, onSnapshot, serverTimestamp
-};
+const dayRef = id => doc(db, DAYS, id);
 
-/* ---------- warstwa danych ---------- */
-
-const LIVE_COL = 'live';        // aktywna sesja, jeden dokument na dzień
-const SES_COL  = 'sessions';    // zakończone treningi
-const BODY_COL = 'body';        // masa ciała Martina
-const SET_COL  = 'settings';    // ustawienia (shake, cel masy)
-
-export const liveRef = (id) => doc(db, LIVE_COL, id);
-
-export async function pushLive(id, data) {
-  await setDoc(liveRef(id), { ...data, updatedAt: Date.now() }, { merge: false });
+/* trening dnia — merge, żeby dwa telefony się nie nadpisywały */
+export async function saveDay(id, patch) {
+  await setDoc(dayRef(id), { ...patch, id, updatedAt: Date.now() }, { merge: true });
 }
-export function watchLive(id, cb) {
-  return onSnapshot(liveRef(id), s => cb(s.exists() ? s.data() : null), () => {});
-}
-export async function readLive(id) {
-  const s = await getDoc(liveRef(id));
+export async function readDay(id) {
+  const s = await getDoc(dayRef(id));
   return s.exists() ? s.data() : null;
 }
-export async function dropLive(id) { try { await deleteDoc(liveRef(id)); } catch(e){} }
-
-export async function finishSession(session) {
-  await addDoc(collection(db, SES_COL), session);
+export function watchDay(id, cb) {
+  return onSnapshot(dayRef(id), s => { if (s.exists()) cb(s.data()); }, () => {});
 }
-export async function fetchSessions(n = 200) {
-  const q = query(collection(db, SES_COL), orderBy('startedAt', 'desc'), limit(n));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+export async function listDays(n = 200) {
+  const q = query(collection(db, DAYS), orderBy('startedAt', 'desc'), limit(n));
+  const s = await getDocs(q);
+  return s.docs.map(d => d.data());
 }
 
-export async function addBody(entry) { await addDoc(collection(db, BODY_COL), entry); }
-export async function fetchBody(n = 120) {
-  const q = query(collection(db, BODY_COL), orderBy('ts', 'desc'), limit(n));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+/* masa ciała — id = data, więc jeden wpis na dzień i edycja nadpisuje */
+export async function saveWeight(dateId, data) {
+  await setDoc(doc(db, BODY, dateId), { ...data, id: dateId }, { merge: true });
+}
+export async function removeWeight(dateId) { await deleteDoc(doc(db, BODY, dateId)); }
+export async function listWeights(n = 400) {
+  const q = query(collection(db, BODY), orderBy('id', 'desc'), limit(n));
+  const s = await getDocs(q);
+  return s.docs.map(d => d.data());
 }
 
-export async function saveSettings(obj) {
-  await setDoc(doc(db, SET_COL, 'martin'), obj, { merge: true });
-}
-export async function loadSettings() {
-  const s = await getDoc(doc(db, SET_COL, 'martin'));
+export async function saveConfig(obj) { await setDoc(doc(db, CFG, 'martin'), obj, { merge: true }); }
+export async function loadConfig() {
+  const s = await getDoc(doc(db, CFG, 'martin'));
   return s.exists() ? s.data() : {};
 }

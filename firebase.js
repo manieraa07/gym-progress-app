@@ -39,7 +39,7 @@ export function watchDay(id, cb) {
   return onSnapshot(dayRef(id), s => { if (s.exists()) cb(s.data()); }, () => {});
 }
 export async function listDays(n = 200) {
-  const q = query(collection(db, DAYS), orderBy('startedAt', 'desc'), limit(n));
+  const q = query(collection(db, DAYS), orderBy('id', 'desc'), limit(n));
   const s = await getDocs(q);
   return s.docs.map(d => d.data());
 }
